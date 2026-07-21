@@ -32,14 +32,14 @@ function Login() {
         <div className="flex flex-col items-center mb-xl w-full">
           <span className="material-symbols-outlined text-[48px] text-primary mb-md" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
           <h1 className="text-[28px] leading-[1.3] font-medium text-on-surface text-center tracking-tight">BlockBank</h1>
-          <p className="text-sm text-on-surface-variant text-center mt-xs">Secure Ledger Access</p>
+          <p className="text-sm text-on-surface-variant text-center mt-xs">Secure Access</p>
         </div>
 
         {/* Login Form */}
         <form className="w-full flex flex-col gap-lg" onSubmit={handleSubmit}>
           {/* Email Field */}
           <div className="flex flex-col gap-xs w-full">
-            <label className="text-[12px] font-medium tracking-wider text-on-surface-variant uppercase" htmlFor="email">Institutional Email</label>
+            <label className="text-[12px] font-medium tracking-wider text-on-surface-variant uppercase" htmlFor="email">Email Address</label>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline text-[20px]">mail</span>
               <input 
@@ -58,8 +58,7 @@ function Login() {
           {/* Password Field */}
           <div className="flex flex-col gap-xs w-full">
             <div className="flex justify-between items-end">
-              <label className="text-[12px] font-medium tracking-wider text-on-surface-variant uppercase" htmlFor="password">Hardware Key / Password</label>
-              <a className="text-[12px] font-medium text-primary hover:underline" href="#">Recover Access</a>
+              <label className="text-[12px] font-medium tracking-wider text-on-surface-variant uppercase" htmlFor="password">Password</label>
             </div>
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline text-[20px]">lock</span>
@@ -106,19 +105,7 @@ function Login() {
               <span className="material-symbols-outlined text-[18px]">login</span>
               Authenticate
             </button>
-            <button 
-              className="btn-ghost w-full h-10 rounded flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider cursor-pointer border border-transparent" 
-              type="button"
-              onClick={() => {
-                setLoading(true)
-                setTimeout(() => {
-                  setLoading(false)
-                  navigate('/dashboard')
-                }, 1000)
-              }}
-            >
-              Use SSO / Hardware Token
-            </button>
+
           </div>
         </form>
 
