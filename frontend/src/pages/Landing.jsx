@@ -39,7 +39,7 @@ function Landing() {
         </div>
         <div className="flex items-center gap-md">
           <Link className="hidden md:block text-sm font-medium text-on-surface hover:opacity-80 transition-opacity" to="/login">Sign In</Link>
-          <Link className="bg-primary text-on-primary text-sm font-medium px-lg py-sm rounded hover:opacity-90 transition-opacity" to="/login">Open Account</Link>
+          <Link className="bg-primary text-on-primary text-sm font-medium px-lg py-sm rounded hover:opacity-90 transition-opacity" to="/register">Open Account</Link>
         </div>
       </nav>
 
@@ -59,7 +59,7 @@ function Landing() {
               BlockBank is an online banking platform that uses blockchain technology to ensure secure transactions and real-time fraud detection. Your money. Your trust. Our responsibility.
             </p>
             <div className="flex flex-col sm:flex-row gap-md">
-              <Link className="bg-primary text-on-primary text-sm font-medium px-2xl py-md rounded hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm flex items-center justify-center gap-sm h-12" to="/login">
+              <Link className="bg-primary text-on-primary text-sm font-medium px-2xl py-md rounded hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-sm flex items-center justify-center gap-sm h-12" to="/register">
                 Open Account
                 <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
               </Link>
