@@ -5,6 +5,8 @@ function Landing() {
   const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
+    document.documentElement.classList.add('scroll-smooth');
+    
     const handleScroll = () => {
       if (window.scrollY > 50) {
         setScrolled(true)
@@ -13,7 +15,10 @@ function Landing() {
       }
     }
     window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      document.documentElement.classList.remove('scroll-smooth');
+    }
   }, [])
 
   return (

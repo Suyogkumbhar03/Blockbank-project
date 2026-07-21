@@ -19,7 +19,6 @@ function Dashboard() {
             <span className="material-symbols-outlined text-[24px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
             <span className="font-sans text-lg font-bold text-on-surface tracking-tight">BlockBank</span>
           </div>
-          <span className="text-[12px] font-medium tracking-wide text-on-surface-variant uppercase">Secure Ledger v2.4</span>
         </div>
         
         <ul className="flex flex-col flex-1 px-sm gap-xs">
@@ -49,23 +48,11 @@ function Dashboard() {
           </li>
           <li>
             <a className="flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container transition-colors" href="#">
-              <span className="material-symbols-outlined">hub</span>
-              <span className="text-xs font-semibold uppercase tracking-wider">Blockchain Explorer</span>
-            </a>
-          </li>
-          <li>
-            <a className="flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container transition-colors" href="#">
               <span className="material-symbols-outlined">gpp_maybe</span>
               <span className="text-xs font-semibold uppercase tracking-wider">Fraud Alerts</span>
             </a>
           </li>
           <li className="mt-auto">
-            <a className="flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container transition-colors" href="#">
-              <span className="material-symbols-outlined">admin_panel_settings</span>
-              <span className="text-xs font-semibold uppercase tracking-wider">Admin</span>
-            </a>
-          </li>
-          <li>
             <a className="flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container transition-colors" href="#">
               <span className="material-symbols-outlined">settings</span>
               <span className="text-xs font-semibold uppercase tracking-wider">Settings</span>
@@ -141,7 +128,7 @@ function Dashboard() {
                   <div>
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant mb-xs">Total Assets</h3>
                     <div className="text-4xl font-semibold text-on-surface">
-                      $1,245,890.00 <span className="text-base text-on-tertiary-container ml-2 font-normal">USD</span>
+                      ₹1,245,890.00 <span className="text-base text-on-tertiary-container ml-2 font-normal">INR</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 bg-tertiary-fixed-dim/10 text-on-tertiary-container px-2 py-1 rounded-sm border border-tertiary-fixed-dim/20">
@@ -164,7 +151,7 @@ function Dashboard() {
               </div>
 
               {/* Quick Actions Bento */}
-              <div className="col-span-12 lg:col-span-4 grid grid-rows-3 gap-sm">
+              <div className="col-span-12 lg:col-span-4 grid grid-rows-2 gap-sm">
                 <button 
                   className="bg-primary text-on-primary rounded-lg p-md flex items-center justify-between hover:bg-primary/90 transition-colors cursor-pointer"
                   onClick={() => navigate('/transfer')}
@@ -182,16 +169,8 @@ function Dashboard() {
                   </div>
                   <span className="material-symbols-outlined">arrow_forward</span>
                 </button>
-                <button className="bg-surface-container-lowest border border-outline-variant text-on-surface rounded-lg p-md flex items-center justify-between hover:bg-surface-container transition-colors cursor-pointer">
-                  <div className="flex items-center gap-md">
-                    <span className="material-symbols-outlined">hub</span>
-                    <span className="text-sm font-semibold uppercase tracking-wider">Verify on Blockchain</span>
-                  </div>
-                  <span className="material-symbols-outlined">arrow_forward</span>
-                </button>
               </div>
             </section>
-
             {/* Bottom Row: Transactions */}
             <section className="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden">
               <div className="p-md border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
@@ -214,7 +193,7 @@ function Dashboard() {
                       <td className="p-md text-sm text-on-surface">Oct 24, 2023</td>
                       <td className="p-md font-mono text-xs text-on-surface-variant">TX-892A-4F</td>
                       <td className="p-md text-sm text-on-surface">Acme Corp Settlement</td>
-                      <td className="p-md text-sm font-medium text-on-surface text-right">+$12,500.00</td>
+                      <td className="p-md text-sm font-medium text-on-surface text-right">+₹12,500.00</td>
                       <td className="p-md text-center">
                         <span className="inline-block px-2 py-1 bg-tertiary-fixed-dim/10 text-on-tertiary-container text-[10px] font-bold rounded-sm border border-tertiary-fixed-dim/20 uppercase tracking-wider">Success</span>
                       </td>
@@ -223,7 +202,7 @@ function Dashboard() {
                       <td className="p-md text-sm text-on-surface">Oct 23, 2023</td>
                       <td className="p-md font-mono text-xs text-on-surface-variant">TX-771B-9C</td>
                       <td className="p-md text-sm text-on-surface">Server Infrastructure (AWS)</td>
-                      <td className="p-md text-sm font-medium text-right text-on-surface-variant">-$4,230.50</td>
+                      <td className="p-md text-sm font-medium text-right text-on-surface-variant">-₹4,230.50</td>
                       <td className="p-md text-center">
                         <span className="inline-block px-2 py-1 bg-surface-container text-on-surface-variant text-[10px] font-bold rounded-sm border border-outline-variant uppercase tracking-wider">Pending</span>
                       </td>
@@ -232,7 +211,7 @@ function Dashboard() {
                       <td className="p-md text-sm text-on-surface">Oct 21, 2023</td>
                       <td className="p-md font-mono text-xs text-on-surface-variant">TX-650C-2E</td>
                       <td className="p-md text-sm text-on-surface">Q3 Dividends Transfer</td>
-                      <td className="p-md text-sm font-medium text-on-surface text-right">+$45,000.00</td>
+                      <td className="p-md text-sm font-medium text-on-surface text-right">+₹45,000.00</td>
                       <td className="p-md text-center">
                         <span className="inline-block px-2 py-1 bg-tertiary-fixed-dim/10 text-on-tertiary-container text-[10px] font-bold rounded-sm border border-tertiary-fixed-dim/20 uppercase tracking-wider">Success</span>
                       </td>
