@@ -18,6 +18,15 @@ const getPendingUsers = async (req, res) => {
     }
 };
 
+const getApprovedUsers = async (req, res) => {
+    try {
+        const approvedUsers = await User.find({ status: 'approved' }).select('-password');
+        res.status(200).json(approvedUsers);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
 const approveUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -73,4 +82,4 @@ const rejectUser = async (req, res) => {
     }
 };
 
-module.exports = { getPendingUsers, approveUser, rejectUser };
+module.exports = { getPendingUsers, getApprovedUsers, approveUser, rejectUser };
