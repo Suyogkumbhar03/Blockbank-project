@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import axios from 'axios'
+import { useState, useEffect, useCallback } from 'react'
+import api from '../services/api'
+import Sidebar from '../components/Sidebar'
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -9,140 +9,68 @@ function AdminDashboard() {
   const [approvedUsers, setApprovedUsers] = useState([])
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true)
-        const token = localStorage.getItem('token');
-        const headers = { Authorization: `Bearer ${token}` };
-        
-        if (activeTab === 'approve-users' || activeTab === 'dashboard') {
-            const pendingRes = await axios.get('http://localhost:5000/api/admin/pending-users', { headers });
-            setPendingUsers(pendingRes.data);
-        }
-        if (activeTab === 'accounts' || activeTab === 'dashboard') {
-            const approvedRes = await axios.get('http://localhost:5000/api/admin/approved-users', { headers });
-            setApprovedUsers(approvedRes.data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch users", error);
-      } finally {
-        setLoading(false)
-      }
+  const fetchUsers = useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true)
+      const [pendingRes, approvedRes] = await Promise.all([
+        api.get('/admin/pending-users'),
+        api.get('/admin/approved-users'),
+      ])
+      setPendingUsers(pendingRes.data || [])
+      setApprovedUsers(approvedRes.data || [])
+    } catch (error) {
+      console.error('Failed to fetch users', error)
+    } finally {
+      if (!silent) setLoading(false)
     }
-    
-    fetchUsers();
-  }, [activeTab]);
+  }, [])
+
+  // Initial fetch + re-fetch when tab changes
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers, activeTab])
+
+  // Poll every 5 seconds silently to pick up changes from other browsers/sessions
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchUsers(true)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [fetchUsers])
 
   const handleApprove = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/admin/approve/${id}`, { initialBalance: 100 }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setPendingUsers(pendingUsers.filter(u => u._id !== id));
-      alert('User approved successfully');
+      await api.put(`/admin/approve/${id}`, { initialBalance: 100 })
+      await fetchUsers()
+      alert('User approved successfully')
     } catch (error) {
-      console.error("Failed to approve user", error);
+      console.error('Failed to approve user', error)
     }
   }
 
   const handleReject = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/admin/reject/${id}`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setPendingUsers(pendingUsers.filter(u => u._id !== id));
-      alert('User rejected');
+      await api.put(`/admin/reject/${id}`)
+      await fetchUsers()
+      alert('User rejected')
     } catch (error) {
-      console.error("Failed to reject user", error);
+      console.error('Failed to reject user', error)
     }
   }
 
   return (
     <div className="min-h-screen bg-surface-container-lowest font-sans text-on-surface flex">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-surface-variant flex flex-col justify-between hidden md:flex sticky top-0 h-screen">
-        <div>
-          {/* Logo */}
-          <div className="h-16 flex items-center gap-3 px-6 border-b border-surface-variant">
-            <span className="material-symbols-outlined text-primary text-[24px]" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
-            <span className="font-bold text-lg tracking-tight">BlockBank</span>
-          </div>
-
-          {/* Navigation */}
-          <nav className="p-4 flex flex-col gap-2">
-            <a
-              href="#"
-              onClick={(e) => { e.preventDefault(); setActiveTab('dashboard') }}
-              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${activeTab === 'dashboard' ? 'bg-surface-container text-on-surface font-semibold' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'}`}
-            >
-              <span className="material-symbols-outlined text-[20px]">grid_view</span>
-              <span className="text-sm">Dashboard</span>
-            </a>
-            <a
-              href="#"
-              onClick={(e) => { e.preventDefault(); setActiveTab('accounts') }}
-              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${activeTab === 'accounts' ? 'bg-surface-container text-on-surface font-semibold' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'}`}
-            >
-              <span className="material-symbols-outlined text-[20px]">account_balance</span>
-              <span className="text-sm">Accounts</span>
-            </a>
-            <a
-              href="#"
-              onClick={(e) => { e.preventDefault(); setActiveTab('approve-users') }}
-              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${activeTab === 'approve-users' ? 'bg-surface-container text-on-surface font-semibold' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'}`}
-            >
-              <span className="material-symbols-outlined text-[20px]">person_check</span>
-              <span className="text-sm">Approve Users</span>
-            </a>
-            <a
-              href="#"
-              onClick={(e) => { e.preventDefault(); setActiveTab('transactions') }}
-              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${activeTab === 'transactions' ? 'bg-surface-container text-on-surface font-semibold' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'}`}
-            >
-              <span className="material-symbols-outlined text-[20px]">receipt_long</span>
-              <span className="text-sm">Transactions</span>
-            </a>
-            <a
-              href="#"
-              onClick={(e) => { e.preventDefault(); setActiveTab('explorer') }}
-              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${activeTab === 'explorer' ? 'bg-surface-container text-on-surface font-semibold' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'}`}
-            >
-              <span className="material-symbols-outlined text-[20px]">account_tree</span>
-              <span className="text-sm">Blockchain Explorer</span>
-            </a>
-            <a
-              href="#"
-              onClick={(e) => { e.preventDefault(); setActiveTab('fraud') }}
-              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${activeTab === 'fraud' ? 'bg-surface-container text-on-surface font-semibold' : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'}`}
-            >
-              <span className="material-symbols-outlined text-[20px]">gpp_bad</span>
-              <span className="text-sm">Fraud Alerts</span>
-            </a>
-          </nav>
-        </div>
-
-        {/* Bottom Actions */}
-        <div className="p-4 flex flex-col gap-2 mb-4">
-          <a href="#" className="flex items-center gap-3 px-4 py-3 rounded-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors">
-            <span className="material-symbols-outlined text-[20px]">settings</span>
-            <span className="text-sm">Settings</span>
-          </a>
-          <Link to="/login" className="flex items-center gap-3 px-4 py-3 rounded-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors">
-            <span className="material-symbols-outlined text-[20px]">logout</span>
-            <span className="text-sm">Logout</span>
-          </Link>
-        </div>
-      </aside>
+      {/* Shared Admin Sidebar */}
+      <Sidebar role="admin" activeTab={activeTab} setActiveTab={setActiveTab} />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-screen max-w-full overflow-hidden">
         {/* Top Header */}
         <header className="h-16 border-b border-surface-variant flex items-center justify-between px-8 bg-surface-container-lowest sticky top-0 z-10 shrink-0">
           <div className="relative w-96">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
+            <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-on-surface-variant text-[20px]">
+              search
+            </span>
             <input
               type="text"
               placeholder="Search system logs..."
@@ -168,16 +96,19 @@ function AdminDashboard() {
 
         {/* Dynamic Content */}
         <div className="p-8 flex-1 overflow-auto bg-surface">
-          
           {activeTab === 'dashboard' && (
             <>
               {/* Page Title */}
               <div className="flex justify-between items-end mb-8">
                 <div>
-                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">Admin Dashboard</h1>
-                  <p className="text-on-surface-variant">Real-time overview of network health and security protocols.</p>
+                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
+                    Admin Dashboard
+                  </h1>
+                  <p className="text-on-surface-variant">
+                    Real-time overview of network health and security protocols.
+                  </p>
                 </div>
-                <button className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-md text-sm font-medium hover:bg-surface-container-low transition-colors shadow-sm">
+                <button className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-md text-sm font-medium hover:bg-surface-container-low transition-colors shadow-sm cursor-pointer">
                   Generate Report
                 </button>
               </div>
@@ -186,11 +117,17 @@ function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm flex flex-col justify-between">
                   <div className="flex justify-between items-start mb-6">
-                    <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">Pending Accounts</span>
-                    <span className="material-symbols-outlined text-on-surface-variant">person_add</span>
+                    <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
+                      Pending Accounts
+                    </span>
+                    <span className="material-symbols-outlined text-on-surface-variant">
+                      person_add
+                    </span>
                   </div>
                   <div>
-                    <div className="text-[40px] font-bold text-on-surface leading-none mb-3">{pendingUsers.length}</div>
+                    <div className="text-[40px] font-bold text-on-surface leading-none mb-3">
+                      {pendingUsers.length}
+                    </div>
                     <div className="flex items-center gap-1 text-tertiary">
                       <span className="material-symbols-outlined text-[16px]">trending_down</span>
                       <span className="text-xs font-medium">Waiting for approval</span>
@@ -200,11 +137,17 @@ function AdminDashboard() {
 
                 <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm flex flex-col justify-between">
                   <div className="flex justify-between items-start mb-6">
-                    <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">Approved Accounts</span>
-                    <span className="material-symbols-outlined text-on-surface-variant">account_balance</span>
+                    <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
+                      Approved Accounts
+                    </span>
+                    <span className="material-symbols-outlined text-on-surface-variant">
+                      account_balance
+                    </span>
                   </div>
                   <div>
-                    <div className="text-[40px] font-bold text-on-surface leading-none mb-3">{approvedUsers.length}</div>
+                    <div className="text-[40px] font-bold text-on-surface leading-none mb-3">
+                      {approvedUsers.length}
+                    </div>
                     <div className="flex items-center gap-1 text-primary">
                       <span className="material-symbols-outlined text-[16px]">trending_up</span>
                       <span className="text-xs font-medium">Active users</span>
@@ -215,7 +158,9 @@ function AdminDashboard() {
                 <div className="bg-[#fff5f5] border border-[#fecaca] rounded-xl p-6 shadow-sm flex flex-col justify-between relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-1 h-full bg-error"></div>
                   <div className="flex justify-between items-start mb-6">
-                    <span className="text-xs font-semibold tracking-wider text-error uppercase">Active Fraud Alerts</span>
+                    <span className="text-xs font-semibold tracking-wider text-error uppercase">
+                      Active Fraud Alerts
+                    </span>
                     <span className="material-symbols-outlined text-error">warning</span>
                   </div>
                   <div>
@@ -226,12 +171,23 @@ function AdminDashboard() {
 
                 <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm flex flex-col justify-between">
                   <div className="flex justify-between items-start mb-6">
-                    <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">Blockchain Status</span>
-                    <span className="material-symbols-outlined text-[#059669]" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                    <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
+                      Blockchain Status
+                    </span>
+                    <span
+                      className="material-symbols-outlined text-[#059669]"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >
+                      check_circle
+                    </span>
                   </div>
                   <div>
-                    <div className="text-[32px] font-bold text-on-surface leading-none mb-3">Optimal</div>
-                    <div className="text-xs font-medium text-on-surface-variant">Block #894210</div>
+                    <div className="text-[32px] font-bold text-on-surface leading-none mb-3">
+                      Optimal
+                    </div>
+                    <div className="text-xs font-medium text-on-surface-variant">
+                      Block #894210
+                    </div>
                   </div>
                 </div>
               </div>
@@ -240,11 +196,40 @@ function AdminDashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
                   <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-lg font-semibold text-on-surface">System Transaction Volume</h2>
+                    <h2 className="text-lg font-semibold text-on-surface">
+                      System Transaction Volume
+                    </h2>
                     <div className="flex bg-surface-container rounded-md p-1">
-                      <button onClick={() => setChartRange('1D')} className={`px-3 py-1 text-xs font-medium rounded ${chartRange === '1D' ? 'bg-surface-container-lowest shadow-sm text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}>1D</button>
-                      <button onClick={() => setChartRange('1W')} className={`px-3 py-1 text-xs font-medium rounded ${chartRange === '1W' ? 'bg-surface-container-lowest shadow-sm text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}>1W</button>
-                      <button onClick={() => setChartRange('1M')} className={`px-3 py-1 text-xs font-medium rounded ${chartRange === '1M' ? 'bg-surface-container-lowest shadow-sm text-on-surface' : 'text-on-surface-variant hover:text-on-surface'}`}>1M</button>
+                      <button
+                        onClick={() => setChartRange('1D')}
+                        className={`px-3 py-1 text-xs font-medium rounded ${
+                          chartRange === '1D'
+                            ? 'bg-surface-container-lowest shadow-sm text-on-surface'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        1D
+                      </button>
+                      <button
+                        onClick={() => setChartRange('1W')}
+                        className={`px-3 py-1 text-xs font-medium rounded ${
+                          chartRange === '1W'
+                            ? 'bg-surface-container-lowest shadow-sm text-on-surface'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        1W
+                      </button>
+                      <button
+                        onClick={() => setChartRange('1M')}
+                        className={`px-3 py-1 text-xs font-medium rounded ${
+                          chartRange === '1M'
+                            ? 'bg-surface-container-lowest shadow-sm text-on-surface'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        1M
+                      </button>
                     </div>
                   </div>
                   {/* Chart Container Placeholder */}
@@ -255,15 +240,32 @@ function AdminDashboard() {
                       <div className="w-full h-px bg-[#e2e8f0]"></div>
                       <div className="w-full h-px bg-[#e2e8f0]"></div>
                     </div>
-                    <svg viewBox="0 0 1000 300" preserveAspectRatio="none" className="absolute bottom-0 w-full h-[90%] opacity-80 z-10">
+                    <svg
+                      viewBox="0 0 1000 300"
+                      preserveAspectRatio="none"
+                      className="absolute bottom-0 w-full h-[90%] opacity-80 z-10"
+                    >
                       <defs>
                         <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.1" />
+                          <stop
+                            offset="0%"
+                            stopColor="var(--color-primary)"
+                            stopOpacity="0.1"
+                          />
                           <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
                         </linearGradient>
                       </defs>
-                      <path d="M0,250 C150,220 250,280 350,220 C450,160 550,150 600,250 C650,350 750,40 850,20 C920,0 970,180 1000,200 L1000,300 L0,300 Z" fill="url(#chartGradient)" />
-                      <path d="M0,250 C150,220 250,280 350,220 C450,160 550,150 600,250 C650,350 750,40 850,20 C920,0 970,180 1000,200" fill="none" stroke="var(--color-on-surface-variant)" strokeWidth="3" strokeLinecap="round" />
+                      <path
+                        d="M0,250 C150,220 250,280 350,220 C450,160 550,150 600,250 C650,350 750,40 850,20 C920,0 970,180 1000,200 L1000,300 L0,300 Z"
+                        fill="url(#chartGradient)"
+                      />
+                      <path
+                        d="M0,250 C150,220 250,280 350,220 C450,160 550,150 600,250 C650,350 750,40 850,20 C920,0 970,180 1000,200"
+                        fill="none"
+                        stroke="var(--color-on-surface-variant)"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
                     </svg>
                   </div>
                 </div>
@@ -272,19 +274,22 @@ function AdminDashboard() {
                 <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
                   <h2 className="text-lg font-semibold text-on-surface mb-6">Quick Actions</h2>
                   <div className="flex flex-col gap-4">
-                    <button onClick={() => setActiveTab('approve-users')} className="flex items-center gap-4 p-4 border border-outline-variant rounded-lg hover:bg-surface-container-lowest hover:border-primary transition-all group text-left">
+                    <button
+                      onClick={() => setActiveTab('approve-users')}
+                      className="flex items-center gap-4 p-4 border border-outline-variant rounded-lg hover:bg-surface-container-lowest hover:border-primary transition-all group text-left cursor-pointer"
+                    >
                       <div className="w-10 h-10 rounded bg-[#1e293b] text-white flex items-center justify-center group-hover:bg-primary transition-colors">
                         <span className="material-symbols-outlined text-[20px]">person_check</span>
                       </div>
                       <span className="font-medium text-sm text-on-surface">Approve Users</span>
                     </button>
-                    <button className="flex items-center gap-4 p-4 border border-outline-variant rounded-lg hover:bg-[#fff5f5] hover:border-error transition-all group text-left">
+                    <button className="flex items-center gap-4 p-4 border border-outline-variant rounded-lg hover:bg-[#fff5f5] hover:border-error transition-all group text-left cursor-pointer">
                       <div className="w-10 h-10 rounded bg-[#fee2e2] text-error flex items-center justify-center group-hover:bg-error group-hover:text-white transition-colors">
                         <span className="material-symbols-outlined text-[20px]">ac_unit</span>
                       </div>
                       <span className="font-medium text-sm text-on-surface">Freeze Accounts</span>
                     </button>
-                    <button className="flex items-center gap-4 p-4 border border-outline-variant rounded-lg hover:bg-surface-container-lowest hover:border-primary transition-all group text-left">
+                    <button className="flex items-center gap-4 p-4 border border-outline-variant rounded-lg hover:bg-surface-container-lowest hover:border-primary transition-all group text-left cursor-pointer">
                       <div className="w-10 h-10 rounded bg-surface-container text-on-surface-variant flex items-center justify-center group-hover:bg-surface-container-high transition-colors">
                         <span className="material-symbols-outlined text-[20px]">terminal</span>
                       </div>
@@ -300,11 +305,13 @@ function AdminDashboard() {
             <div className="max-w-6xl mx-auto">
               <div className="flex justify-between items-end mb-8">
                 <div>
-                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">Accounts</h1>
+                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
+                    Accounts
+                  </h1>
                   <p className="text-on-surface-variant">List of all active and approved users.</p>
                 </div>
               </div>
-              
+
               <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -318,20 +325,31 @@ function AdminDashboard() {
                   </thead>
                   <tbody>
                     {approvedUsers.length > 0 ? (
-                      approvedUsers.map(user => (
-                        <tr key={user._id} className="border-b border-outline-variant hover:bg-surface-container-low transition-colors">
+                      approvedUsers.map((user) => (
+                        <tr
+                          key={user._id || user.id}
+                          className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                        >
                           <td className="py-4 px-6 text-sm font-medium">{user.name}</td>
                           <td className="py-4 px-6 text-sm text-on-surface-variant">{user.email}</td>
-                          <td className="py-4 px-6 text-sm text-on-surface-variant">{user.accountNumber || 'N/A'}</td>
-                          <td className="py-4 px-6 text-sm font-medium text-primary">${(user.balance || 0).toLocaleString()}</td>
+                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                            {user.accountNumber || 'N/A'}
+                          </td>
+                          <td className="py-4 px-6 text-sm font-medium text-primary font-mono">
+                            ₹{(user.balance || 0).toLocaleString()}
+                          </td>
                           <td className="py-4 px-6 text-sm">
-                            <span className="px-2 py-1 bg-surface-container-high rounded text-xs font-semibold">{user.role}</span>
+                            <span className="px-2 py-1 bg-surface-container-high rounded text-xs font-semibold uppercase">
+                              {user.role}
+                            </span>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5" className="py-8 text-center text-on-surface-variant text-sm">No approved accounts found.</td>
+                        <td colSpan="5" className="py-8 text-center text-on-surface-variant text-sm">
+                          No approved accounts found.
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -344,8 +362,12 @@ function AdminDashboard() {
             <div className="max-w-6xl mx-auto">
               <div className="flex justify-between items-end mb-8">
                 <div>
-                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">Approve Users</h1>
-                  <p className="text-on-surface-variant">Review and approve new user registrations.</p>
+                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
+                    Approve Users
+                  </h1>
+                  <p className="text-on-surface-variant">
+                    Review and approve new user registrations.
+                  </p>
                 </div>
               </div>
 
@@ -356,26 +378,33 @@ function AdminDashboard() {
                       <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
                       <th className="py-4 px-6 font-semibold text-sm text-on-surface">Email</th>
                       <th className="py-4 px-6 font-semibold text-sm text-on-surface">Phone</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface text-right">Actions</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface text-right">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {pendingUsers.length > 0 ? (
-                      pendingUsers.map(user => (
-                        <tr key={user._id} className="border-b border-outline-variant hover:bg-surface-container-low transition-colors">
+                      pendingUsers.map((user) => (
+                        <tr
+                          key={user._id || user.id}
+                          className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                        >
                           <td className="py-4 px-6 text-sm font-medium">{user.name}</td>
                           <td className="py-4 px-6 text-sm text-on-surface-variant">{user.email}</td>
-                          <td className="py-4 px-6 text-sm text-on-surface-variant">{user.phone || 'N/A'}</td>
+                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                            {user.phone || 'N/A'}
+                          </td>
                           <td className="py-4 px-6 text-sm text-right space-x-2">
-                            <button 
-                              onClick={() => handleApprove(user._id)}
-                              className="px-3 py-1.5 bg-primary text-on-primary rounded text-xs font-semibold hover:bg-primary/90 transition-colors"
+                            <button
+                              onClick={() => handleApprove(user._id || user.id)}
+                              className="px-3 py-1.5 bg-primary text-on-primary rounded text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
                             >
                               Approve
                             </button>
-                            <button 
-                              onClick={() => handleReject(user._id)}
-                              className="px-3 py-1.5 bg-error text-white rounded text-xs font-semibold hover:bg-error/90 transition-colors"
+                            <button
+                              onClick={() => handleReject(user._id || user.id)}
+                              className="px-3 py-1.5 bg-error text-white rounded text-xs font-semibold hover:bg-error/90 transition-colors cursor-pointer"
                             >
                               Reject
                             </button>
@@ -384,7 +413,9 @@ function AdminDashboard() {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="4" className="py-8 text-center text-on-surface-variant text-sm">No pending users found.</td>
+                        <td colSpan="4" className="py-8 text-center text-on-surface-variant text-sm">
+                          No pending users found.
+                        </td>
                       </tr>
                     )}
                   </tbody>
@@ -393,12 +424,13 @@ function AdminDashboard() {
             </div>
           )}
 
-          {(activeTab === 'transactions' || activeTab === 'explorer' || activeTab === 'fraud') && (
+          {(activeTab === 'transactions' ||
+            activeTab === 'explorer' ||
+            activeTab === 'fraud') && (
             <div className="flex items-center justify-center h-64">
               <p className="text-on-surface-variant">This section is under construction.</p>
             </div>
           )}
-
         </div>
       </main>
     </div>

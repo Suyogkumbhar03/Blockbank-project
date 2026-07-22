@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation, Link } from 'react-router-dom'
+import api from '../services/api'
 
 function Login() {
   const [email, setEmail] = useState('')
@@ -7,15 +8,46 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
+  const [errorMsg, setErrorMsg] = useState('')
+  const [isPendingAccount, setIsPendingAccount] = useState(false)
 
-  const handleSubmit = (e) => {
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  // Message passed from Register navigation state, if any
+  const infoMessage = location.state?.infoMessage
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
+    setErrorMsg('')
+    setIsPendingAccount(false)
+
+    try {
+      const res = await api.post('/login', { email, password })
       setLoading(false)
-      navigate('/dashboard')
-    }, 1200)
+
+      const { token, user } = res.data
+      localStorage.setItem('token', token)
+      localStorage.setItem('user', JSON.stringify(user))
+
+      if (user.role === 'admin') {
+        navigate('/admin')
+      } else {
+        navigate('/dashboard')
+      }
+    } catch (err) {
+      setLoading(false)
+      const status = err.response?.status
+      const message = err.response?.data?.message || err.message || 'Login failed'
+
+      if (status === 403 || message.toLowerCase().includes('pending') || message.toLowerCase().includes('not yet approved')) {
+        setIsPendingAccount(true)
+        setErrorMsg("Your account is still under review. You'll be able to log in once an admin approves your account.")
+      } else {
+        setErrorMsg(message)
+      }
+    }
   }
 
   return (
@@ -34,6 +66,28 @@ function Login() {
           <h1 className="text-[28px] leading-[1.3] font-medium text-on-surface text-center tracking-tight">BlockBank</h1>
           <p className="text-sm text-on-surface-variant text-center mt-xs">Secure Access</p>
         </div>
+
+        {/* Info message from Register page */}
+        {infoMessage && !errorMsg && (
+          <div className="w-full mb-md p-md bg-tertiary-fixed-dim/20 border border-tertiary-fixed-dim/40 rounded text-on-surface text-xs flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary text-[18px]">info</span>
+            <span>{infoMessage}</span>
+          </div>
+        )}
+
+        {/* Inline Error / Warning Display */}
+        {errorMsg && (
+          <div className={`w-full mb-md p-md rounded text-xs flex items-center gap-2 ${
+            isPendingAccount 
+              ? 'bg-amber-500/10 border border-amber-500/30 text-amber-600' 
+              : 'bg-error/10 border border-error/20 text-error'
+          }`}>
+            <span className="material-symbols-outlined text-[18px]">
+              {isPendingAccount ? 'hourglass_top' : 'error'}
+            </span>
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         {/* Login Form */}
         <form className="w-full flex flex-col gap-lg" onSubmit={handleSubmit}>
@@ -105,7 +159,11 @@ function Login() {
               <span className="material-symbols-outlined text-[18px]">login</span>
               Authenticate
             </button>
+          </div>
 
+          <div className="text-center mt-2">
+            <span className="text-sm text-on-surface-variant">Don't have an account? </span>
+            <Link to="/register" className="text-sm font-medium text-primary hover:underline">Register</Link>
           </div>
         </form>
 
@@ -116,7 +174,7 @@ function Login() {
         </div>
       </main>
 
-      {/* Simple loading overlay simulated on submit */}
+      {/* Loading overlay */}
       {loading && (
         <div className="fixed inset-0 bg-surface/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="flex flex-col items-center gap-md">
