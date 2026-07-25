@@ -1,22 +1,40 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import api from '../services/api'
 
 function Register() {
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('')
+  const [dateOfBirth, setDateOfBirth] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   const navigate = useNavigate()
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
-    setTimeout(() => {
+    setErrorMsg('')
+    try {
+      const res = await api.post('/register', {
+        name: username,
+        email,
+        phone,
+        dateOfBirth,
+        password,
+      })
       setLoading(false)
-      navigate('/dashboard')
-    }, 1200)
+      const successMessage =
+        res.data?.message ||
+        "Registration submitted — you'll be able to log in once an admin approves your account."
+      navigate('/login', { state: { infoMessage: successMessage } })
+    } catch (err) {
+      setLoading(false)
+      const message = err.response?.data?.message || err.message || 'Registration failed'
+      setErrorMsg(message)
+    }
   }
 
   return (
@@ -35,6 +53,14 @@ function Register() {
           <h1 className="text-[28px] leading-[1.3] font-medium text-on-surface text-center tracking-tight">Create Account</h1>
           <p className="text-sm text-on-surface-variant text-center mt-xs">Join BlockBank Today</p>
         </div>
+
+        {/* Inline Error Display */}
+        {errorMsg && (
+          <div className="w-full mb-md p-md bg-error/10 border border-error/20 rounded text-error text-xs flex items-center gap-2">
+            <span className="material-symbols-outlined text-[18px]">error</span>
+            <span>{errorMsg}</span>
+          </div>
+        )}
 
         {/* Register Form */}
         <form className="w-full flex flex-col gap-lg" onSubmit={handleSubmit}>
@@ -83,7 +109,7 @@ function Register() {
                 className="input-field w-full h-10 pl-10 pr-3 rounded font-mono text-sm" 
                 id="phone" 
                 name="phone" 
-                placeholder="+91 9876543210" 
+                placeholder="9876543210" 
                 required 
                 type="tel"
                 pattern="[0-9]{10}"
@@ -94,6 +120,23 @@ function Register() {
                   const val = e.target.value.replace(/\D/g, '');
                   if (val.length <= 10) setPhone(val);
                 }}
+              />
+            </div>
+          </div>
+
+          {/* Date of Birth Field */}
+          <div className="flex flex-col gap-xs w-full">
+            <label className="text-[12px] font-medium tracking-wider text-on-surface-variant uppercase" htmlFor="dateOfBirth">Date of Birth</label>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline text-[20px]">calendar_today</span>
+              <input 
+                className="input-field w-full h-10 pl-10 pr-3 rounded font-mono text-sm" 
+                id="dateOfBirth" 
+                name="dateOfBirth" 
+                required 
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
               />
             </div>
           </div>
@@ -140,7 +183,7 @@ function Register() {
         </form>
       </main>
 
-      {/* Simple loading overlay simulated on submit */}
+      {/* Simple loading overlay */}
       {loading && (
         <div className="fixed inset-0 bg-surface/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="flex flex-col items-center gap-md">

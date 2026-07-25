@@ -3,9 +3,12 @@ import Landing from './pages/Landing'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminProfile from './pages/AdminProfile'
 import Dashboard from './pages/Dashboard'
 import TransferMoney from './pages/TransferMoney'
 import TransferSuccess from './pages/TransferSuccess'
+import Profile from './pages/Profile'
+import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   return (
@@ -14,10 +17,66 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/admin" element={<AdminDashboard />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/transfer" element={<TransferMoney />} />
-        <Route path="/success" element={<TransferSuccess />} />
+        
+        {/* Protected Admin Routes */}
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute requireRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin/profile" 
+          element={
+            <ProtectedRoute requireRole="admin">
+              <AdminProfile />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Protected User Routes */}
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/transfer" 
+          element={
+            <ProtectedRoute>
+              <TransferMoney />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/success" 
+          element={
+            <ProtectedRoute>
+              <TransferSuccess />
+            </ProtectedRoute>
+          } 
+        />
       </Routes>
     </BrowserRouter>
   )

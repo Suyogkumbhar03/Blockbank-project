@@ -52,7 +52,10 @@ const approveUser = async (req, res) => {
             message: 'User approved successfully',
             user: {
                 id: user._id,
+                _id: user._id,
                 name: user.name,
+                email: user.email,
+                role: user.role,
                 accountNumber: user.accountNumber,
                 paymentId: user.paymentId,
                 balance: user.balance,
