@@ -6,6 +6,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import Dashboard from './pages/Dashboard'
 import TransferMoney from './pages/TransferMoney'
 import TransferSuccess from './pages/TransferSuccess'
+import Transactions from './pages/Transactions'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -40,6 +41,14 @@ function App() {
           element={
             <ProtectedRoute>
               <TransferMoney />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/transactions" 
+          element={
+            <ProtectedRoute>
+              <Transactions />
             </ProtectedRoute>
           } 
         />

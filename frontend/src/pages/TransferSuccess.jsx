@@ -1,14 +1,20 @@
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 function TransferSuccess() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [currentDateStr, setCurrentDateStr] = useState('')
   const [copied, setCopied] = useState(false)
   const [confetti, setConfetti] = useState([])
   const styleRef = useRef(null)
 
-  const txId = 'TX-9f8a48b94abfa80d'
+  // Dynamic transaction data from router state or fallback
+  const tx = location.state?.transaction
+  const txId = tx?.transactionId || 'TX-9F8A48B94ABF'
+  const amount = tx?.amount || 0
+  const receiverName = tx?.receiverName || 'Recipient'
+  const blockNum = Math.floor(100000 + Math.random() * 900000)
 
   useEffect(() => {
     // Inject keyframe CSS
@@ -43,14 +49,14 @@ function TransferSuccess() {
     setConfetti(pieces)
 
     // Date
-    const now = new Date()
+    const txDate = tx?.timestamp ? new Date(tx.timestamp) : new Date()
     const options = { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }
-    setCurrentDateStr(now.toLocaleString('en-IN', options))
+    setCurrentDateStr(txDate.toLocaleString('en-IN', options))
 
     return () => {
       if (styleRef.current) document.head.removeChild(styleRef.current)
     }
-  }, [])
+  }, [tx])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(txId)
@@ -150,7 +156,7 @@ function TransferSuccess() {
               Amount Transferred
             </p>
             <p style={{ fontSize: 30, fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-              ₹12,500.00
+              ₹{amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </p>
           </div>
           <div style={{
@@ -178,7 +184,7 @@ function TransferSuccess() {
               Receiver
             </span>
             <span style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>
-              Acme Corporation Ltd.
+              {receiverName}
             </span>
           </div>
 
@@ -190,7 +196,7 @@ function TransferSuccess() {
               Date & Time
             </span>
             <span style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>
-              {currentDateStr || 'Jul 21, 2026, 07:35 PM'}
+              {currentDateStr}
             </span>
           </div>
 
@@ -233,7 +239,7 @@ function TransferSuccess() {
               Blockchain Block
             </span>
             <span style={{ fontFamily: 'monospace', fontSize: 14, fontWeight: 700, color: '#374151' }}>
-              #894211
+              #{blockNum}
             </span>
           </div>
         </div>

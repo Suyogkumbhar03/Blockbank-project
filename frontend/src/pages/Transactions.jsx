@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import api from '../services/api'
 
-function Dashboard() {
+function Transactions() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
+  const [filterType, setFilterType] = useState('all') // all | sent | received
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [user, setUser] = useState({
     name: 'User',
@@ -15,7 +16,7 @@ function Dashboard() {
   })
 
   const [transactions, setTransactions] = useState([])
-  const [loadingTxs, setLoadingTxs] = useState(true)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const userStr = localStorage.getItem('user')
@@ -31,22 +32,22 @@ function Dashboard() {
     }
   }, [])
 
-  // Fetch real transaction history
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        setLoadingTxs(true)
-        const res = await api.get('/transfer/history')
-        if (Array.isArray(res.data)) {
-          setTransactions(res.data)
-        }
-      } catch (err) {
-        console.error('Failed to fetch transaction history', err)
-      } finally {
-        setLoadingTxs(false)
+  // Fetch full transaction history
+  const fetchHistory = async () => {
+    try {
+      setLoading(true)
+      const res = await api.get('/transfer/history')
+      if (Array.isArray(res.data)) {
+        setTransactions(res.data)
       }
+    } catch (err) {
+      console.error('Failed to fetch transaction history', err)
+    } finally {
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchHistory()
   }, [])
 
@@ -56,13 +57,19 @@ function Dashboard() {
     return d.toLocaleString('en-IN', {
       day: 'numeric',
       month: 'short',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     })
   }
 
-  // Filter transactions by search query
+  // Filter transactions by search query and type (all / sent / received)
   const filteredTransactions = transactions.filter((tx) => {
+    // Type filter
+    if (filterType === 'sent' && tx.direction !== 'sent') return false
+    if (filterType === 'received' && tx.direction !== 'received') return false
+
+    // Search query filter
     if (!searchQuery.trim()) return true
     const q = searchQuery.toLowerCase()
     return (
@@ -74,9 +81,6 @@ function Dashboard() {
       (tx.transactionId || '').toLowerCase().includes(q)
     )
   })
-
-  // Visual Chart placeholder data
-  const chartData = [25, 38, 50, 30, 75, 100]
 
   return (
     <div
@@ -98,7 +102,7 @@ function Dashboard() {
               </span>
               <input
                 className="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded font-sans text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-tertiary-fixed-dim/10 transition-all"
-                placeholder="Search transactions, accounts, or IDs..."
+                placeholder="Search by name, ID, or description..."
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -133,114 +137,80 @@ function Dashboard() {
           </div>
         </header>
 
-        {/* Dashboard Canvas */}
+        {/* Transactions Page Canvas */}
         <main className="flex-1 mt-16 p-margin-desktop bg-background overflow-y-auto">
           <div className="max-w-[1280px] mx-auto flex flex-col gap-xl">
-            {/* Welcome Section */}
+            {/* Header Section */}
             <section className="flex justify-between items-end">
               <div>
                 <h2 className="text-3xl font-semibold text-on-surface mb-xs">
-                  Welcome back, {user.name}.
+                  Transactions
                 </h2>
                 <p className="text-base text-on-surface-variant">
-                  Here is your daily financial summary.
+                  View and manage your entire ledger activity history.
                 </p>
-                {user.accountNumber && (
-                  <div className="flex items-center gap-4 mt-2 text-xs font-mono text-on-surface-variant">
-                    <span>Account No: <strong>{user.accountNumber}</strong></span>
-                    {user.paymentId && <span>Payment ID: <strong>{user.paymentId}</strong></span>}
-                  </div>
-                )}
               </div>
               <div className="flex gap-sm">
-                <button className="px-md py-2 bg-surface-container-lowest border border-outline-variant text-primary text-xs font-semibold uppercase tracking-wider rounded hover:bg-surface-container transition-colors flex items-center gap-2 cursor-pointer">
-                  <span className="material-symbols-outlined text-[18px]">download</span> Export Report
-                </button>
-              </div>
-            </section>
-
-            {/* Top Row: Balance & Quick Actions */}
-            <section className="grid grid-cols-12 gap-gutter">
-              {/* Total Assets Card */}
-              <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-lg p-lg flex flex-col">
-                <div className="flex justify-between items-start mb-md">
-                  <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant mb-xs">
-                      Total Assets
-                    </h3>
-                    <div className="text-4xl font-semibold text-on-surface">
-                      ₹{(user.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}{' '}
-                      <span className="text-base text-on-tertiary-container ml-2 font-normal">
-                        INR
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 bg-tertiary-fixed-dim/10 text-on-tertiary-container px-2 py-1 rounded-sm border border-tertiary-fixed-dim/20">
-                    <span className="material-symbols-outlined text-[16px]">trending_up</span>
-                    <span className="font-mono text-xs font-semibold">+0.0%</span>
-                  </div>
-                </div>
-
-                {/* Visual Chart representation */}
-                <div className="flex-1 min-h-[140px] relative border-b border-outline-variant/50 flex items-end pb-2 gap-3 mt-md">
-                  {chartData.map((val, idx) => (
-                    <div
-                      key={idx}
-                      className={`w-full rounded-t-sm transition-all duration-300 hover:opacity-85 cursor-pointer ${
-                        idx === chartData.length - 1 ? 'bg-primary' : 'bg-surface-container'
-                      }`}
-                      style={{ height: `${val}%` }}
-                      title={`Period ${idx + 1}: ${val}%`}
-                    ></div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Quick Actions Bento */}
-              <div className="col-span-12 lg:col-span-4 grid grid-rows-2 gap-sm">
                 <button
-                  className="bg-primary text-on-primary rounded-lg p-md flex items-center justify-between hover:bg-primary/90 transition-colors cursor-pointer"
+                  onClick={fetchHistory}
+                  className="px-md py-2 bg-surface-container-lowest border border-outline-variant text-on-surface text-xs font-semibold uppercase tracking-wider rounded hover:bg-surface-container transition-colors flex items-center gap-2 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh
+                </button>
+                <button
                   onClick={() => navigate('/transfer')}
+                  className="px-md py-2 bg-primary text-on-primary text-xs font-semibold uppercase tracking-wider rounded hover:bg-primary/90 transition-colors flex items-center gap-2 cursor-pointer"
                 >
-                  <div className="flex items-center gap-md">
-                    <span className="material-symbols-outlined">payments</span>
-                    <span className="text-sm font-semibold uppercase tracking-wider">
-                      Initiate Transfer
-                    </span>
-                  </div>
-                  <span className="material-symbols-outlined">arrow_forward</span>
-                </button>
-                <button
-                  className="bg-surface-container-lowest border border-outline-variant text-on-surface rounded-lg p-md flex items-center justify-between hover:bg-surface-container transition-colors cursor-pointer"
-                  onClick={() => navigate('/transactions')}
-                >
-                  <div className="flex items-center gap-md">
-                    <span className="material-symbols-outlined">history</span>
-                    <span className="text-sm font-semibold uppercase tracking-wider">
-                      Transaction History
-                    </span>
-                  </div>
-                  <span className="material-symbols-outlined">arrow_forward</span>
+                  <span className="material-symbols-outlined text-[18px]">payments</span> Send Money
                 </button>
               </div>
             </section>
 
-            {/* Bottom Row: Real Transaction History */}
-            <section
-              id="recent-transactions-section"
-              className="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden"
-            >
-              <div className="p-md border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                  Recent Transactions
-                </h3>
-              </div>
+            {/* Filter Tabs */}
+            <div className="flex gap-2 border-b border-outline-variant pb-2">
+              <button
+                onClick={() => setFilterType('all')}
+                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${
+                  filterType === 'all'
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                All Transactions ({transactions.length})
+              </button>
+              <button
+                onClick={() => setFilterType('sent')}
+                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${
+                  filterType === 'sent'
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Sent ({transactions.filter((t) => t.direction === 'sent').length})
+              </button>
+              <button
+                onClick={() => setFilterType('received')}
+                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${
+                  filterType === 'received'
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                Received ({transactions.filter((t) => t.direction === 'received').length})
+              </button>
+            </div>
+
+            {/* Transaction History Table */}
+            <section className="bg-surface-container-lowest border border-outline-variant rounded-lg overflow-hidden">
               <div className="w-full overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-outline-variant bg-surface-bright">
                       <th className="p-md text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
-                        Date
+                        Transaction ID
+                      </th>
+                      <th className="p-md text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                        Date & Time
                       </th>
                       <th className="p-md text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
                         Party / Payment ID
@@ -257,16 +227,16 @@ function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {loadingTxs ? (
+                    {loading ? (
                       <tr>
-                        <td colSpan="5" className="p-8 text-center text-on-surface-variant text-sm">
+                        <td colSpan="6" className="p-8 text-center text-on-surface-variant text-sm">
                           Loading transaction history...
                         </td>
                       </tr>
                     ) : filteredTransactions.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="p-8 text-center text-on-surface-variant text-sm">
-                          No transactions recorded yet.
+                        <td colSpan="6" className="p-8 text-center text-on-surface-variant text-sm">
+                          No transactions found matching criteria.
                         </td>
                       </tr>
                     ) : (
@@ -280,6 +250,11 @@ function Dashboard() {
                             key={tx._id || tx.transactionId}
                             className="border-b border-outline-variant/60 hover:bg-surface-container-lowest/80 transition-colors text-sm"
                           >
+                            {/* Transaction ID */}
+                            <td className="p-md font-mono text-xs font-bold text-gray-800 whitespace-nowrap">
+                              {tx.transactionId}
+                            </td>
+
                             {/* Date */}
                             <td className="p-md text-xs text-on-surface-variant whitespace-nowrap font-medium">
                               {formatDate(tx.timestamp)}
@@ -329,4 +304,4 @@ function Dashboard() {
   )
 }
 
-export default Dashboard
+export default Transactions
