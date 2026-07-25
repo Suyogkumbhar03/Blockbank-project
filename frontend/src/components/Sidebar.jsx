@@ -89,7 +89,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab }) {
     { label: 'Dashboard', to: '/dashboard', icon: 'dashboard' },
     { label: 'Accounts', to: '#', icon: 'account_balance' },
     { label: 'Transfer Money', to: '/transfer', icon: 'payments' },
-    { label: 'Transactions', to: '#', icon: 'receipt_long' },
+    { label: 'Transactions', to: '/transactions', icon: 'receipt_long' },
     { label: 'Fraud Alerts', to: '#', icon: 'gpp_maybe' },
   ];
 

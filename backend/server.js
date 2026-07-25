@@ -4,8 +4,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-
-
+const transferRoutes = require('./routes/transferRoutes');
 
 dotenv.config();
 connectDB();
@@ -16,6 +15,7 @@ app.use(express.json());
 
 app.use('/api', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/transfer', transferRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

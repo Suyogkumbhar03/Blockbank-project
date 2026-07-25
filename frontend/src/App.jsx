@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import TransferMoney from './pages/TransferMoney'
 import TransferSuccess from './pages/TransferSuccess'
 import Profile from './pages/Profile'
+import Transactions from './pages/Transactions'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -66,6 +67,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/transactions" 
+          element={
+            <ProtectedRoute>
+              <Transactions />
             </ProtectedRoute>
           } 
         />
