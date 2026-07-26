@@ -15,7 +15,10 @@ export default function TransferMoney() {
 
   const [amount, setAmount] = useState('')
   const [remarks, setRemarks] = useState('')
-  const [showModal, setShowModal] = useState(false)
+  const [modalStep, setModalStep] = useState('none') // 'none' | 'confirm' | 'pin'
+  const [pin, setPin] = useState('')
+  const [pinError, setPinError] = useState('')
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false)
   const [userBalance, setUserBalance] = useState(0)
   const [userName, setUserName] = useState('User')
   const [userPaymentId, setUserPaymentId] = useState('')
@@ -80,12 +83,43 @@ export default function TransferMoney() {
     }
   }
 
-  const handleConfirmTransfer = () => {
-    setShowModal(false)
-    executeTransfer()
+  const handleProceedToPin = () => {
+    setModalStep('pin')
+    setPin('')
+    setPinError('')
   }
 
-  const executeTransfer = async () => {
+  const handleVerifyPinAndSend = async (e) => {
+    if (e) e.preventDefault();
+    if (!/^\d{4}$/.test(pin)) {
+      setPinError('PIN must be exactly 4 digits')
+      return
+    }
+
+    setIsVerifyingPin(true)
+    setPinError('')
+
+    try {
+      const res = await api.post('/transfer/verify-pin', { pin })
+      if (res.data && res.data.valid) {
+        const verifiedPin = pin
+        setModalStep('none')
+        setIsVerifyingPin(false)
+        setPin('')
+        executeTransfer(verifiedPin)
+      } else {
+        setIsVerifyingPin(false)
+        setPinError(res.data?.message || 'Incorrect PIN')
+        setPin('')
+      }
+    } catch (err) {
+      setIsVerifyingPin(false)
+      setPinError(err.response?.data?.message || 'Incorrect PIN')
+      setPin('')
+    }
+  }
+
+  const executeTransfer = async (verifiedPin) => {
     setIsSending(true)
     setTransferError('')
     setTransferSuccessState(false)
@@ -96,6 +130,7 @@ export default function TransferMoney() {
       receiverPaymentId: receiverId.trim(),
       amount: parsedAmt,
       note: remarks.trim(),
+      pin: verifiedPin,
     })
 
     try {
@@ -436,7 +471,7 @@ export default function TransferMoney() {
                 id="btn-send"
                 type="button"
                 disabled={!canSend}
-                onClick={() => setShowModal(true)}
+                onClick={() => { setModalStep('confirm'); setPin(''); setPinError(''); }}
                 className="bg-gray-800 text-white text-[13px] font-semibold px-6 py-2 rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">send</span>
@@ -447,8 +482,8 @@ export default function TransferMoney() {
         </main>
       </div>
 
-      {/* ─── Confirmation Popup ─── */}
-      {showModal && (
+      {/* ─── Task 9: Confirmation Popup (Yes / No) ─── */}
+      {modalStep === 'confirm' && (
         <div
           id="confirmation-modal"
           style={{
@@ -471,7 +506,7 @@ export default function TransferMoney() {
               background: 'rgba(0,0,0,0.5)',
               backdropFilter: 'blur(4px)',
             }}
-            onClick={() => setShowModal(false)}
+            onClick={() => setModalStep('none')}
           />
 
           {/* Popup card */}
@@ -520,9 +555,9 @@ export default function TransferMoney() {
                 lineHeight: 1.3,
               }}
             >
-              Proceed with Payment?
+              Confirm Transfer
             </h3>
-            <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 6 }}>You are about to send</p>
+            <p style={{ fontSize: 14, color: '#6b7280', marginBottom: 6 }}>Send ₹{parsedAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })} to {verifiedRecipient?.name}?</p>
             <p style={{ fontSize: 28, fontWeight: 800, color: '#111', marginBottom: 4 }}>
               ₹{parsedAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </p>
@@ -534,7 +569,7 @@ export default function TransferMoney() {
               <button
                 id="btn-modal-no"
                 type="button"
-                onClick={() => setShowModal(false)}
+                onClick={() => setModalStep('none')}
                 style={{
                   flex: 1,
                   border: '2px solid #e5e7eb',
@@ -553,7 +588,7 @@ export default function TransferMoney() {
               <button
                 id="btn-modal-yes"
                 type="button"
-                onClick={handleConfirmTransfer}
+                onClick={handleProceedToPin}
                 style={{
                   flex: 1,
                   background: '#111',
@@ -567,9 +602,164 @@ export default function TransferMoney() {
                   transition: 'background 0.15s',
                 }}
               >
-                Yes, Send
+                Yes
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Task 10: PIN Entry Modal ─── */}
+      {modalStep === 'pin' && (
+        <div
+          id="pin-modal"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Backdrop */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)',
+            }}
+            onClick={() => { if (!isVerifyingPin) { setModalStep('none'); setPin(''); setPinError(''); } }}
+          />
+
+          {/* Popup card */}
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 10,
+              background: '#fff',
+              borderRadius: '20px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              width: '100%',
+              maxWidth: '400px',
+              padding: '36px 32px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              margin: '0 16px',
+            }}
+          >
+            {/* Icon */}
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background: '#111',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ color: '#fff', fontSize: 28 }}>
+                lock
+              </span>
+            </div>
+
+            <h3
+              style={{
+                fontSize: 20,
+                fontWeight: 800,
+                color: '#111',
+                marginBottom: 6,
+                lineHeight: 1.3,
+              }}
+            >
+              Enter Transaction PIN
+            </h3>
+            <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
+              Enter your 4-digit PIN to authorize this transfer.
+            </p>
+
+            {/* Inline Error */}
+            {pinError && (
+              <div className="w-full mb-4 p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs font-semibold flex items-center justify-center gap-1.5">
+                <span className="material-symbols-outlined text-base">error</span>
+                <span>{pinError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyPinAndSend} className="w-full flex flex-col items-center">
+              <div className="w-full mb-6">
+                <input
+                  id="transfer-pin-input"
+                  type="password"
+                  maxLength="4"
+                  pattern="[0-9]*"
+                  placeholder="••••"
+                  value={pin}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '');
+                    if (val.length <= 4) {
+                      setPin(val);
+                      if (pinError) setPinError('');
+                    }
+                  }}
+                  disabled={isVerifyingPin}
+                  className="w-full text-center text-2xl font-mono tracking-[0.5em] py-3 px-4 border border-gray-300 rounded-xl focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:opacity-60"
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 12, width: '100%' }}>
+                <button
+                  id="btn-pin-cancel"
+                  type="button"
+                  onClick={() => { setModalStep('none'); setPin(''); setPinError(''); }}
+                  disabled={isVerifyingPin}
+                  style={{
+                    flex: 1,
+                    border: '2px solid #e5e7eb',
+                    background: '#fff',
+                    color: '#374151',
+                    fontSize: 15,
+                    fontWeight: 700,
+                    padding: '14px 0',
+                    borderRadius: 14,
+                    cursor: 'pointer',
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  id="btn-pin-confirm"
+                  type="submit"
+                  disabled={pin.length !== 4 || isVerifyingPin}
+                  style={{
+                    flex: 1,
+                    background: pin.length === 4 && !isVerifyingPin ? '#111' : '#9ca3af',
+                    color: '#fff',
+                    fontSize: 15,
+                    fontWeight: 700,
+                    padding: '14px 0',
+                    borderRadius: 14,
+                    cursor: pin.length === 4 && !isVerifyingPin ? 'pointer' : 'not-allowed',
+                    border: 'none',
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  {isVerifyingPin ? 'Verifying...' : 'Confirm'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

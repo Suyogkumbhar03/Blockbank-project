@@ -8,15 +8,23 @@ function Register() {
   const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('')
   const [dateOfBirth, setDateOfBirth] = useState('')
+  const [pin, setPin] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [showPin, setShowPin] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
     setErrorMsg('')
+
+    if (!/^\d{4}$/.test(pin)) {
+      setErrorMsg('PIN must be exactly 4 digits')
+      return
+    }
+
+    setLoading(true)
     try {
       const res = await api.post('/register', {
         name: username,
@@ -24,6 +32,7 @@ function Register() {
         phone,
         dateOfBirth,
         password,
+        pin,
       })
       setLoading(false)
       const successMessage =
@@ -166,6 +175,40 @@ function Register() {
                 <span className="material-symbols-outlined text-[20px]">{showPassword ? 'visibility_off' : 'visibility'}</span>
               </button>
             </div>
+          </div>
+
+          {/* Transaction PIN Field */}
+          <div className="flex flex-col gap-xs w-full">
+            <label className="text-[12px] font-medium tracking-wider text-on-surface-variant uppercase" htmlFor="pin">Set 4-digit Transaction PIN</label>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline text-[20px]">dialpad</span>
+              <input 
+                className="input-field w-full h-10 pl-10 pr-10 rounded font-mono text-sm" 
+                id="pin" 
+                name="pin" 
+                placeholder="••••" 
+                required 
+                maxLength="4"
+                pattern="[0-9]{4}"
+                title="PIN must be exactly 4 digits"
+                type={showPin ? 'text' : 'password'}
+                value={pin}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '');
+                  if (val.length <= 4) setPin(val);
+                }}
+              />
+              <button 
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-outline hover:text-on-surface transition-colors" 
+                onClick={() => setShowPin(!showPin)} 
+                type="button"
+              >
+                <span className="material-symbols-outlined text-[20px]">{showPin ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            </div>
+            <p className="text-[11px] text-on-surface-variant mt-0.5">
+              You'll enter this PIN to confirm every money transfer.
+            </p>
           </div>
 
           {/* Actions */}

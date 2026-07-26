@@ -4,20 +4,58 @@ const User = require('../models/User');
 
 const registerUser = async (req, res) => {
     try {
-        const { name, email, phone, password } = req.body;
+        const { name, email, phone, dateOfBirth, password, pin } = req.body;
 
+        // Check if email already registered
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ message: 'Email already registered' });
         }
 
+        // Validate Date of Birth & Age
+        if (!dateOfBirth) {
+            return res.status(400).json({ message: 'Date of birth is required' });
+        }
+        const dob = new Date(dateOfBirth);
+        if (isNaN(dob.getTime())) {
+            return res.status(400).json({ message: 'Invalid date of birth' });
+        }
+
+        const today = new Date();
+        if (dob > today) {
+            return res.status(400).json({ message: 'Date of birth cannot be in the future' });
+        }
+
+        let age = today.getFullYear() - dob.getFullYear();
+        const monthDiff = today.getMonth() - dob.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            age--;
+        }
+
+        if (age > 120) {
+            return res.status(400).json({ message: 'Date of birth is invalid (age cannot exceed 120 years)' });
+        }
+
+        if (age < 10) {
+            return res.status(400).json({ message: 'You must be at least 10 years old to open a BlockBank account, as per RBI guidelines for independent minor accounts.' });
+        }
+
+        // Validate Transaction PIN
+        const stringPin = pin !== undefined && pin !== null ? String(pin).trim() : '';
+        if (!/^\d{4}$/.test(stringPin)) {
+            return res.status(400).json({ message: 'PIN must be exactly 4 digits' });
+        }
+
         const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPin = await bcrypt.hash(stringPin, 10);
 
         const newUser = new User({
             name,
             email,
             phone,
-            password: hashedPassword
+            dateOfBirth: dob,
+            password: hashedPassword,
+            transactionPin: hashedPin
         });
 
         await newUser.save();

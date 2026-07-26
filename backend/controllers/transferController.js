@@ -1,5 +1,31 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const bcrypt = require('bcrypt');
+
+// TASK 7: Verify PIN endpoint controller
+const verifyPin = async (req, res) => {
+    try {
+        const { pin } = req.body;
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ valid: false, message: 'User not found' });
+        }
+
+        const stringPin = pin !== undefined && pin !== null ? String(pin).trim() : '';
+        if (!stringPin || !user.transactionPin) {
+            return res.status(400).json({ valid: false, message: 'Incorrect PIN' });
+        }
+
+        const isMatch = await bcrypt.compare(stringPin, user.transactionPin);
+        if (!isMatch) {
+            return res.status(400).json({ valid: false, message: 'Incorrect PIN' });
+        }
+
+        return res.status(200).json({ valid: true });
+    } catch (error) {
+        return res.status(500).json({ valid: false, message: 'Server error verifying PIN', error: error.message });
+    }
+};
 
 // TASK 2: Verify Payment ID endpoint controller
 const verifyPaymentId = async (req, res) => {
@@ -32,17 +58,23 @@ const verifyPaymentId = async (req, res) => {
 
 // TASK 3: Transfer endpoint controller
 const transferMoney = async (req, res) => {
-    // Note regarding ACID transactions:
-    // In production MongoDB environments with replica sets, multi-document ACID transactions
-    // using `mongoose.startSession()` should be used to guarantee that balance modifications
-    // and transaction record creation execute atomically without risk of partial updates.
     try {
-        const { receiverPaymentId, amount, note } = req.body;
+        const { receiverPaymentId, amount, note, pin } = req.body;
 
         // 1. Fetch sender document
         const sender = await User.findById(req.user.id);
         if (!sender || sender.status !== 'approved') {
             return res.status(400).json({ message: 'Sender account is not active or approved' });
+        }
+
+        // 1b. Verify Transaction PIN (Defense in Depth)
+        const stringPin = pin !== undefined && pin !== null ? String(pin).trim() : '';
+        if (!stringPin || !sender.transactionPin) {
+            return res.status(400).json({ message: 'Incorrect PIN' });
+        }
+        const isPinValid = await bcrypt.compare(stringPin, sender.transactionPin);
+        if (!isPinValid) {
+            return res.status(400).json({ message: 'Incorrect PIN' });
         }
 
         // 2. Look up receiver by receiverPaymentId
@@ -75,8 +107,8 @@ const transferMoney = async (req, res) => {
         sender.balance -= numericAmount;
         receiver.balance += numericAmount;
 
-        await sender.save();
-        await receiver.save();
+        await sender.save({ validateModifiedOnly: true });
+        await receiver.save({ validateModifiedOnly: true });
 
         // 7. Generate unique transaction ID & create Transaction record
         const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -152,6 +184,7 @@ const getTransactionHistory = async (req, res) => {
 };
 
 module.exports = {
+    verifyPin,
     verifyPaymentId,
     transferMoney,
     getTransactionHistory

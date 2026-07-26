@@ -14,11 +14,14 @@ const seedAdmin = async () => {
 
         if (!existingAdmin) {
             const hashedPassword = await bcrypt.hash('admin123', 10);
+            const hashedPin = await bcrypt.hash('1234', 10);
             const admin = new User({
                 name: 'System Admin',
                 email: adminEmail,
                 phone: '0000000000',
+                dateOfBirth: new Date('1990-01-01'),
                 password: hashedPassword,
+                transactionPin: hashedPin,
                 role: 'admin',
                 status: 'approved',
                 accountNumber: 'BB0000000000',
