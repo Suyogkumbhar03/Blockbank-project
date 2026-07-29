@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
+import UserProfileButton from '../components/UserProfileButton'
 
 function Profile() {
   const navigate = useNavigate()
@@ -143,23 +144,7 @@ function Profile() {
             <div className="h-6 w-px bg-outline-variant mx-2"></div>
             
             {/* Top Right Profile Button */}
-            <button
-              onClick={() => navigate('/profile')}
-              className="flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-opacity cursor-pointer focus:outline-none"
-            >
-              <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center overflow-hidden border border-outline-variant font-bold text-xs">
-                {user.profilePhoto ? (
-                  <img src={user.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
-                ) : user.name ? (
-                  user.name.split(' ').map(n => n[0]).join('').substring(0, 2)
-                ) : (
-                  'AT'
-                )}
-              </div>
-              <span className="text-xs font-semibold tracking-wider">
-                {user.name}
-              </span>
-            </button>
+            <UserProfileButton user={user} />
           </div>
         </header>
 
