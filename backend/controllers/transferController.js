@@ -2,13 +2,24 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const bcrypt = require('bcrypt');
 
-// TASK 7: Verify PIN endpoint controller
+// TASK 7: Verify PIN endpoint controller (with lockout after 3 wrong attempts)
 const verifyPin = async (req, res) => {
     try {
         const { pin } = req.body;
         const user = await User.findById(req.user.id);
         if (!user) {
             return res.status(404).json({ valid: false, message: 'User not found' });
+        }
+
+        // Check if currently locked out
+        if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
+            const remainingMs = user.pinLockedUntil - new Date();
+            const remainingMins = Math.ceil(remainingMs / 60000);
+            return res.status(429).json({
+                valid: false,
+                locked: true,
+                message: `Too many incorrect attempts. Transfers locked for ${remainingMins} minute${remainingMins !== 1 ? 's' : ''}.`
+            });
         }
 
         const stringPin = pin !== undefined && pin !== null ? String(pin).trim() : '';
@@ -18,8 +29,33 @@ const verifyPin = async (req, res) => {
 
         const isMatch = await bcrypt.compare(stringPin, user.transactionPin);
         if (!isMatch) {
-            return res.status(400).json({ valid: false, message: 'Incorrect PIN' });
+            // Increment failed attempts
+            user.pinAttempts = (user.pinAttempts || 0) + 1;
+
+            if (user.pinAttempts >= 3) {
+                // Lock for 30 minutes
+                user.pinLockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+                user.pinAttempts = 0;
+                await user.save({ validateModifiedOnly: true });
+                return res.status(429).json({
+                    valid: false,
+                    locked: true,
+                    message: 'Too many incorrect attempts. Transfers are locked for 30 minutes.'
+                });
+            }
+
+            const attemptsLeft = 3 - user.pinAttempts;
+            await user.save({ validateModifiedOnly: true });
+            return res.status(400).json({
+                valid: false,
+                message: `Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft !== 1 ? 's' : ''} remaining.`
+            });
         }
+
+        // Correct PIN — reset counters
+        user.pinAttempts = 0;
+        user.pinLockedUntil = null;
+        await user.save({ validateModifiedOnly: true });
 
         return res.status(200).json({ valid: true });
     } catch (error) {

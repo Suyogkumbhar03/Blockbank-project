@@ -63,7 +63,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab }) {
               if (setActiveTab) setActiveTab('profile');
             }}
             className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'settings'
+              activeTab === 'profile' || activeTab === 'settings'
                 ? 'bg-surface-container text-on-surface font-semibold'
                 : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
             }`}

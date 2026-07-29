@@ -87,6 +87,13 @@ const loginUser = async (req, res) => {
             return res.status(400).json({ message: 'Invalid email or password' });
         }
 
+        // Track login history for admin accounts (keep last 3, newest first)
+        if (user.role === 'admin') {
+            user.loginHistory = [new Date(), ...(user.loginHistory || [])].slice(0, 3);
+            user.markModified('loginHistory');
+            await user.save({ validateModifiedOnly: true });
+        }
+
         const token = jwt.sign(
             { id: user._id, role: user.role },
             process.env.JWT_SECRET,
@@ -103,7 +110,8 @@ const loginUser = async (req, res) => {
                 role: user.role,
                 accountNumber: user.accountNumber,
                 paymentId: user.paymentId,
-                balance: user.balance
+                balance: user.balance,
+                loginHistory: user.loginHistory || []
             }
         });
     } catch (error) {
