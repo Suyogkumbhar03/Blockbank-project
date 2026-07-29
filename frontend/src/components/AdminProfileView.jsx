@@ -1,51 +1,96 @@
 import { useState, useEffect } from 'react'
+import api from '../services/api'
 
 function AdminProfileView() {
   const [isEditing, setIsEditing] = useState(false)
   const [savedNotice, setSavedNotice] = useState(false)
   const [loginHistory, setLoginHistory] = useState([])
+  const [loadingProfile, setLoadingProfile] = useState(true)
+  const [apiError, setApiError] = useState('')
 
   const [adminData, setAdminData] = useState({
     fullName: 'System Admin',
     email: 'admin@blockbank.com',
-    phone: '+1 (555) 012-9984',
-    dateOfBirth: 'May 12, 1985',
+    phone: '',
+    dateOfBirth: '',
     status: 'APPROVED',
     profilePhoto: '',
   })
 
   useEffect(() => {
-    // Check localStorage for logged-in user data
-    try {
-      const storedUserStr = localStorage.getItem('user')
-      if (storedUserStr) {
-        const u = JSON.parse(storedUserStr)
-        if (u) {
-          setAdminData((prev) => ({
-            ...prev,
-            fullName: u.name || 'System Admin',
-            email: u.email || prev.email,
-          }))
-          if (Array.isArray(u.loginHistory) && u.loginHistory.length > 0) {
-            setLoginHistory(u.loginHistory)
+    let isMounted = true
+
+    const loadProfile = async () => {
+      setLoadingProfile(true)
+      setApiError('')
+
+      // 1. Check localStorage 'user' as immediate baseline
+      try {
+        const storedUserStr = localStorage.getItem('user')
+        if (storedUserStr) {
+          const u = JSON.parse(storedUserStr)
+          if (u && isMounted) {
+            setAdminData((prev) => ({
+              ...prev,
+              fullName: u.name || prev.fullName,
+              email: u.email || prev.email,
+            }))
+            if (Array.isArray(u.loginHistory) && u.loginHistory.length > 0) {
+              setLoginHistory(u.loginHistory)
+            }
           }
         }
+      } catch (err) {
+        console.error('Error reading stored user', err)
       }
-    } catch (err) {
-      console.error('Error reading stored user', err)
-    }
 
-    // Check localStorage for custom saved admin profile data/photo
-    try {
-      const saved = localStorage.getItem('adminUser')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed) {
-          setAdminData((prev) => ({ ...prev, ...parsed }))
+      // 2. Check localStorage 'adminUser' for photo/edits
+      try {
+        const savedPhoto = localStorage.getItem('adminUser')
+        if (savedPhoto) {
+          const parsedPhoto = JSON.parse(savedPhoto)
+          if (parsedPhoto && isMounted) {
+            setAdminData((prev) => ({ ...prev, ...parsedPhoto }))
+          }
+        }
+      } catch (err) {
+        console.error('Error reading stored admin photo', err)
+      }
+
+      // 3. Fetch authoritative data from backend API
+      try {
+        const res = await api.get('/admin/profile')
+        if (res.data && isMounted) {
+          console.log('Fetched admin profile:', res.data)
+          setAdminData((prev) => ({
+            ...prev,
+            fullName: res.data.name || prev.fullName,
+            email: res.data.email || prev.email,
+            phone: res.data.phone || prev.phone,
+            status: res.data.status ? res.data.status.toUpperCase() : 'APPROVED',
+          }))
+
+          if (Array.isArray(res.data.loginHistory) && res.data.loginHistory.length > 0) {
+            setLoginHistory(res.data.loginHistory)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch admin profile:', err)
+        if (isMounted) {
+          const errMsg = err.response?.data?.message || err.message || 'Error connecting to server'
+          setApiError(`API error (${err.response?.status || 'Network'}): ${errMsg}`)
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingProfile(false)
         }
       }
-    } catch (e) {
-      console.error('Error reading saved adminUser', e)
+    }
+
+    loadProfile()
+
+    return () => {
+      isMounted = false
     }
   }, [])
 
@@ -108,7 +153,7 @@ function AdminProfileView() {
 
   return (
     <div className="flex flex-col gap-6 animate-fadeIn">
-      {/* Header */}
+      {/* Breadcrumb & Header */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-on-surface tracking-tight">
@@ -132,6 +177,13 @@ function AdminProfileView() {
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded text-sm flex items-center gap-2">
           <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
           <span>Admin profile updated successfully!</span>
+        </div>
+      )}
+
+      {apiError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm flex items-center gap-2">
+          <span className="material-symbols-outlined text-[20px] text-red-500">error</span>
+          <span className="font-mono text-xs">{apiError}</span>
         </div>
       )}
 
@@ -210,9 +262,8 @@ function AdminProfileView() {
                   disabled={!isEditing}
                   value={adminData.fullName}
                   onChange={handleChange}
-                  className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${
-                    !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                  }`}
+                  className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                    }`}
                 />
               </div>
 
@@ -227,9 +278,8 @@ function AdminProfileView() {
                   disabled={!isEditing}
                   value={adminData.email}
                   onChange={handleChange}
-                  className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${
-                    !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                  }`}
+                  className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                    }`}
                 />
               </div>
 
@@ -244,9 +294,8 @@ function AdminProfileView() {
                   disabled={!isEditing}
                   value={adminData.phone || '+1 (555) 012-9984'}
                   onChange={handleChange}
-                  className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${
-                    !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                  }`}
+                  className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                    }`}
                 />
               </div>
 
@@ -261,9 +310,8 @@ function AdminProfileView() {
                   disabled={!isEditing}
                   value={adminData.dateOfBirth || 'May 12, 1985'}
                   onChange={handleChange}
-                  className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${
-                    !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                  }`}
+                  className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                    }`}
                 />
               </div>
             </form>
@@ -280,21 +328,16 @@ function AdminProfileView() {
               </span>
             </div>
 
-            {loginHistory.length === 0 ? (
-              <div className="flex items-start gap-3 bg-surface-container-low p-3.5 rounded-lg border border-outline-variant/50">
-                <div className="w-10 h-10 rounded-md bg-surface-container flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[20px] text-on-surface-variant">
-                    history
-                  </span>
-                </div>
-                <div>
-                  <div className="font-bold text-sm text-on-surface">
-                    Oct 24, 2023 • 09:14 AM
-                  </div>
-                  <div className="text-xs text-on-surface-variant font-mono mt-0.5">
-                    IP: 192.168.1.104 (HQ Internal)
-                  </div>
-                </div>
+            {loadingProfile && loginHistory.length === 0 ? (
+              <div className="flex flex-col gap-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-14 rounded-lg bg-surface-container animate-pulse" />
+                ))}
+              </div>
+            ) : loginHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-on-surface-variant gap-2">
+                <span className="material-symbols-outlined text-[36px] opacity-40">history</span>
+                <p className="text-sm italic">No login history recorded yet.</p>
               </div>
             ) : (
               <div className="flex flex-col gap-3">
@@ -335,10 +378,16 @@ function AdminProfileView() {
                 ))}
               </div>
             )}
+
+            <p className="text-xs text-on-surface-variant leading-relaxed mt-4">
+              Login timestamps are recorded each time the admin account successfully authenticates.
+            </p>
           </div>
+
         </div>
       </div>
     </div>
+
   )
 }
 
