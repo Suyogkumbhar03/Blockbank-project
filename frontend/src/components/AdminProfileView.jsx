@@ -61,11 +61,6 @@ function AdminProfileView() {
       {/* Breadcrumb & Header */}
       <div className="flex justify-between items-start">
         <div>
-          <div className="text-xs text-on-surface-variant mb-1 font-medium flex items-center gap-1">
-            <span>System Administration</span>
-            <span className="material-symbols-outlined text-[12px]">chevron_right</span>
-            <span>Admin Profile</span>
-          </div>
           <h1 className="text-3xl font-bold text-on-surface tracking-tight">
             Admin Profile
           </h1>
@@ -171,10 +166,10 @@ function AdminProfileView() {
                 />
               </div>
 
-              {/* Institutional Email */}
+              {/* Email */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                  Institutional Email
+                  Email
                 </label>
                 <input
                   type="email"
@@ -245,10 +240,6 @@ function AdminProfileView() {
                 </div>
               </div>
             </div>
-
-            <p className="text-xs text-on-surface-variant leading-relaxed">
-              Login authorized via physical hardware key (YubiKey 5C) and biometric verification.
-            </p>
           </div>
         </div>
       </div>

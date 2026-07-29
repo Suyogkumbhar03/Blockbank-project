@@ -8,6 +8,7 @@ function Profile() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [copied, setCopied] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   // Profile Form States
   const [user, setUser] = useState({
@@ -17,6 +18,7 @@ function Profile() {
     dateOfBirth: '1985-05-12',
     paymentId: 'BB-8892-XT-9102-LDR',
     accountNumber: 'ACC-9842104921',
+    profilePhoto: '',
   })
 
   const [formData, setFormData] = useState({
@@ -39,6 +41,7 @@ function Profile() {
             dateOfBirth: parsed.dateOfBirth || '1985-05-12',
             paymentId: parsed.paymentId || 'BB-8892-XT-9102-LDR',
             accountNumber: parsed.accountNumber || 'ACC-9842104921',
+            profilePhoto: parsed.profilePhoto || '',
           }
           setUser(loadedUser)
           setFormData({
@@ -59,8 +62,24 @@ function Profile() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
+  const handlePhotoChange = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const photoUrl = reader.result
+        setUser((prev) => {
+          const updated = { ...prev, profilePhoto: photoUrl }
+          localStorage.setItem('user', JSON.stringify(updated))
+          return updated
+        })
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleSave = (e) => {
-    e.preventDefault()
+    if (e) e.preventDefault()
     const updatedUser = {
       ...user,
       name: formData.name,
@@ -70,6 +89,7 @@ function Profile() {
     }
     setUser(updatedUser)
     localStorage.setItem('user', JSON.stringify(updatedUser))
+    setIsEditing(false)
     setSavedSuccess(true)
     setTimeout(() => setSavedSuccess(false), 3000)
   }
@@ -128,7 +148,13 @@ function Profile() {
               className="flex items-center gap-2 text-on-surface-variant hover:text-on-surface transition-opacity cursor-pointer focus:outline-none"
             >
               <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center overflow-hidden border border-outline-variant font-bold text-xs">
-                {user.name ? user.name.split(' ').map(n => n[0]).join('').substring(0,2) : 'AT'}
+                {user.profilePhoto ? (
+                  <img src={user.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                ) : user.name ? (
+                  user.name.split(' ').map(n => n[0]).join('').substring(0, 2)
+                ) : (
+                  'AT'
+                )}
               </div>
               <span className="text-xs font-semibold tracking-wider">
                 {user.name}
@@ -151,11 +177,14 @@ function Profile() {
                 </p>
               </div>
               <button
-                onClick={handleSave}
                 type="button"
-                className="bg-black text-white hover:bg-slate-800 transition-colors px-6 py-2.5 rounded text-xs font-semibold uppercase tracking-wider cursor-pointer shadow-sm"
+                onClick={isEditing ? handleSave : () => setIsEditing(true)}
+                className="bg-black text-white hover:bg-slate-800 transition-colors px-5 py-2.5 rounded text-xs font-semibold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-sm"
               >
-                Save All Changes
+                <span className="material-symbols-outlined text-[16px]">
+                  {isEditing ? 'check' : 'edit'}
+                </span>
+                {isEditing ? 'Save Profile' : 'Edit Profile'}
               </button>
             </div>
 
@@ -169,110 +198,55 @@ function Profile() {
 
             {/* Content Grid */}
             <div className="grid grid-cols-12 gap-gutter">
-              {/* Left Column - Personal Information */}
-              <div className="col-span-12 lg:col-span-7 bg-surface-container-lowest border border-outline-variant rounded-lg p-lg flex flex-col justify-between">
-                <div>
-                  {/* Card Header */}
-                  <div className="flex justify-between items-center mb-lg pb-sm border-b border-outline-variant/40">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-on-surface text-[22px]">
-                        person
-                      </span>
-                      <h2 className="text-lg font-bold text-on-surface">
-                        Personal Information
-                      </h2>
-                    </div>
-                    <span className="bg-emerald-50 text-emerald-700 text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                      KYC VERIFIED
-                    </span>
-                  </div>
-
-                  {/* Form Inputs Grid */}
-                  <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-md">
-                    {/* Full Name */}
-                    <div className="flex flex-col gap-xs">
-                      <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        className="input-field w-full h-10 px-3 rounded font-mono text-sm"
-                      />
-                    </div>
-
-                    {/* Email Address */}
-                    <div className="flex flex-col gap-xs">
-                      <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        className="input-field w-full h-10 px-3 rounded font-mono text-sm"
-                      />
-                    </div>
-
-                    {/* Phone Number */}
-                    <div className="flex flex-col gap-xs mt-2">
-                      <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                        Phone Number
-                      </label>
-                      <input
-                        type="text"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        className="input-field w-full h-10 px-3 rounded font-mono text-sm"
-                      />
-                    </div>
-
-                    {/* Date of Birth */}
-                    <div className="flex flex-col gap-xs mt-2">
-                      <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                        Date of Birth
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="date"
-                          name="dateOfBirth"
-                          value={formData.dateOfBirth}
-                          onChange={handleChange}
-                          className="input-field w-full h-10 px-3 rounded font-mono text-sm pr-8"
-                        />
-                      </div>
-                    </div>
-                  </form>
-                </div>
-
-                {/* Unique Payment ID Box */}
-                <div className="bg-surface-container-low border border-outline-variant/60 rounded-md p-md mt-lg flex justify-between items-center">
-                  <div>
-                    <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
-                      Unique Payment ID
-                    </span>
-                    <span className="font-mono font-bold text-sm text-on-surface">
-                      {user.paymentId}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyPaymentId}
-                    className="bg-surface-container-lowest border border-outline-variant rounded px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">content_copy</span>
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Right Column - Account Security & Profile Card */}
+              {/* Left Column - Profile Card & Account Security */}
               <div className="col-span-12 lg:col-span-5 flex flex-col gap-lg">
+                {/* Profile Card */}
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-6 flex flex-col items-center justify-center shadow-sm">
+                  {/* Avatar & Photo Upload */}
+                  <div className="flex flex-col items-center gap-3 mb-4 mt-2">
+                    <div className="relative">
+                      <div className="w-28 h-28 rounded-2xl bg-slate-900 border-2 border-outline-variant overflow-hidden flex items-center justify-center shadow-md">
+                        {user.profilePhoto ? (
+                          <img src={user.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="material-symbols-outlined text-[64px] text-slate-200">
+                            person
+                          </span>
+                        )}
+                      </div>
+                      <label
+                        className="absolute -bottom-1 -right-1 w-7 h-7 bg-white text-slate-900 border border-outline-variant rounded-full flex items-center justify-center shadow-md hover:bg-slate-100 transition-colors cursor-pointer"
+                        title="Change Profile Photo"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">photo_camera</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Change Profile Photo Button */}
+                    <label className="mt-1 bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant rounded-md px-3.5 py-2 text-xs font-semibold flex items-center gap-2 cursor-pointer transition-colors shadow-2xs">
+                      <span className="material-symbols-outlined text-[18px]">photo_camera</span>
+                      <span>Change Profile Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+
+                  {/* Name */}
+                  <h3 className="text-xl font-bold text-on-surface text-center mt-1">
+                    {user.name}
+                  </h3>
+                </div>
+
                 {/* Account Security Card */}
                 <div className="bg-surface-container-lowest border border-outline-variant rounded-lg p-lg">
                   <div className="flex items-center gap-2 mb-md pb-xs border-b border-outline-variant/40">
@@ -301,23 +275,7 @@ function Profile() {
                       </span>
                     </div>
 
-                    {/* Item 2: Two-Factor Auth */}
-                    <div className="border border-outline-variant/60 rounded-md p-md flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer">
-                      <div className="flex items-center gap-md">
-                        <div className="w-9 h-9 rounded bg-surface-container flex items-center justify-center text-on-surface">
-                          <span className="material-symbols-outlined text-[20px]">phonelink_lock</span>
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-on-surface">Two-Factor Auth</div>
-                          <div className="text-xs text-emerald-600 font-semibold">Active: Authenticator App</div>
-                        </div>
-                      </div>
-                      <button className="text-on-surface-variant hover:text-on-surface transition-colors">
-                        <span className="material-symbols-outlined text-[20px]">settings</span>
-                      </button>
-                    </div>
-
-                    {/* Item 3: Active Sessions */}
+                    {/* Item 2: Active Sessions */}
                     <div className="border border-outline-variant/60 rounded-md p-md flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group">
                       <div className="flex items-center gap-md">
                         <div className="w-9 h-9 rounded bg-surface-container flex items-center justify-center text-on-surface">
@@ -334,69 +292,119 @@ function Profile() {
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Dark Client Tier Card */}
-                <div className="bg-slate-900 text-white rounded-lg p-6 flex flex-col items-center justify-center relative overflow-hidden min-h-[220px] shadow-lg">
-                  {/* Subtle dark pattern overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-slate-800/40 to-slate-950 pointer-events-none" />
-
-                  {/* Avatar Container */}
-                  <div className="relative mb-3 z-10">
-                    <div className="w-20 h-20 rounded-xl bg-slate-800 border-2 border-slate-700 overflow-hidden flex items-center justify-center shadow-md">
-                      <span className="material-symbols-outlined text-[42px] text-slate-300">
-                        account_circle
+              {/* Right Column - Personal Information */}
+              <div className="col-span-12 lg:col-span-7 bg-surface-container-lowest border border-outline-variant rounded-lg p-lg flex flex-col justify-between">
+                <div>
+                  {/* Card Header */}
+                  <div className="flex justify-between items-center mb-lg pb-sm border-b border-outline-variant/40">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-on-surface text-[22px]">
+                        person
                       </span>
+                      <h2 className="text-lg font-bold text-on-surface">
+                        Personal Information
+                      </h2>
                     </div>
-                    <button
-                      type="button"
-                      className="absolute -bottom-1 -right-1 w-7 h-7 bg-white text-slate-900 rounded-full flex items-center justify-center shadow-md hover:bg-slate-200 transition-colors cursor-pointer"
-                      title="Edit Avatar"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">edit</span>
-                    </button>
+                    <span className="bg-emerald-50 text-emerald-700 text-[11px] font-semibold uppercase tracking-wider px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                      KYC VERIFIED
+                    </span>
                   </div>
 
-                  {/* Name & Tier */}
-                  <h3 className="text-xl font-bold tracking-tight text-white z-10">
-                    {user.name}
-                  </h3>
-                  <p className="text-xs text-slate-400 font-medium tracking-wide mt-1 z-10">
-                    Premium Tier Client
-                  </p>
+                  {/* Form Inputs Grid */}
+                  <form onSubmit={handleSave} className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                    {/* Full Name */}
+                    <div className="flex flex-col gap-xs">
+                      <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                        Full Name
+                      </label>
+                      <input
+                        type="text"
+                        name="name"
+                        disabled={!isEditing}
+                        value={formData.name}
+                        onChange={handleChange}
+                        className={`input-field w-full h-10 px-3 rounded font-mono text-sm ${
+                          !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                        }`}
+                      />
+                    </div>
+
+                    {/* Email Address */}
+                    <div className="flex flex-col gap-xs">
+                      <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        name="email"
+                        disabled={!isEditing}
+                        value={formData.email}
+                        onChange={handleChange}
+                        className={`input-field w-full h-10 px-3 rounded font-mono text-sm ${
+                          !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                        }`}
+                      />
+                    </div>
+
+                    {/* Phone Number */}
+                    <div className="flex flex-col gap-xs mt-2">
+                      <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                        Phone Number
+                      </label>
+                      <input
+                        type="text"
+                        name="phone"
+                        disabled={!isEditing}
+                        value={formData.phone}
+                        onChange={handleChange}
+                        className={`input-field w-full h-10 px-3 rounded font-mono text-sm ${
+                          !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                        }`}
+                      />
+                    </div>
+
+                    {/* Date of Birth */}
+                    <div className="flex flex-col gap-xs mt-2">
+                      <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
+                        Date of Birth
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          name="dateOfBirth"
+                          disabled={!isEditing}
+                          value={formData.dateOfBirth}
+                          onChange={handleChange}
+                          className={`input-field w-full h-10 px-3 rounded font-mono text-sm pr-8 ${
+                            !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </form>
                 </div>
-              </div>
-            </div>
 
-            {/* Bottom Status Footer */}
-            <div className="bg-surface-container-low border border-outline-variant rounded-lg p-md grid grid-cols-2 md:grid-cols-4 gap-md items-center text-xs">
-              <div className="flex flex-col gap-1 border-r border-outline-variant/40 pr-md">
-                <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                  Account Status
-                </span>
-                <span className="font-bold text-emerald-600">OPERATIONAL</span>
-              </div>
-
-              <div className="flex flex-col gap-1 border-r border-outline-variant/40 pr-md">
-                <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                  Last Login
-                </span>
-                <span className="font-mono font-medium text-on-surface">Oct 24, 2023 - 09:12 AM</span>
-              </div>
-
-              <div className="flex flex-col gap-1 border-r border-outline-variant/40 pr-md">
-                <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                  Ledger Node
-                </span>
-                <span className="font-mono font-medium text-on-surface">LN-NORTH-04</span>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-wider">
-                  Encryption
-                </span>
-                <div className="flex items-center gap-2 font-mono font-medium text-on-surface">
-                  <span>AES-256-GCM</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                {/* Unique Payment ID Box */}
+                <div className="bg-surface-container-low border border-outline-variant/60 rounded-md p-md mt-lg flex justify-between items-center">
+                  <div>
+                    <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
+                      Unique Payment ID
+                    </span>
+                    <span className="font-mono font-bold text-sm text-on-surface">
+                      {user.paymentId}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyPaymentId}
+                    className="bg-surface-container-lowest border border-outline-variant rounded px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                    {copied ? 'Copied' : 'Copy'}
+                  </button>
                 </div>
               </div>
             </div>

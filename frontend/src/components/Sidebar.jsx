@@ -87,7 +87,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab }) {
   // User Sidebar
   const userNavItems = [
     { label: 'Dashboard', to: '/dashboard', icon: 'dashboard' },
-    { label: 'Accounts', to: '#', icon: 'account_balance' },
+    { label: 'Account Balance', to: '/balance', icon: 'account_balance_wallet' },
     { label: 'Transfer Money', to: '/transfer', icon: 'payments' },
     { label: 'Transactions', to: '/transactions', icon: 'receipt_long' },
     { label: 'Fraud Alerts', to: '#', icon: 'gpp_maybe' },

@@ -9,6 +9,7 @@ import TransferMoney from './pages/TransferMoney'
 import TransferSuccess from './pages/TransferSuccess'
 import Profile from './pages/Profile'
 import Transactions from './pages/Transactions'
+import Balance from './pages/Balance'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -43,6 +44,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/balance" 
+          element={
+            <ProtectedRoute>
+              <Balance />
             </ProtectedRoute>
           } 
         />

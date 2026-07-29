@@ -75,8 +75,42 @@ function Dashboard() {
     )
   })
 
-  // Visual Chart placeholder data
-  const chartData = [25, 38, 50, 30, 75, 100]
+  // Calculate daily spending data (sent transactions) for the last 7 days
+  const getDailySpendingChart = () => {
+    const days = []
+    const now = new Date()
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(now.getDate() - i)
+      const dateStr = d.toISOString().split('T')[0]
+      const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' })
+      days.push({ dateStr, dayLabel, totalAmount: 0, count: 0 })
+    }
+
+    transactions.forEach((tx) => {
+      if (!tx.timestamp) return
+      // Only include spending (sent / outgoing transactions)
+      const isSent = tx.direction === 'sent' || (user.paymentId && tx.senderPaymentId === user.paymentId)
+      if (!isSent) return
+
+      const txDateStr = new Date(tx.timestamp).toISOString().split('T')[0]
+      const dayObj = days.find((d) => d.dateStr === txDateStr)
+      if (dayObj) {
+        dayObj.totalAmount += Number(tx.amount || 0)
+        dayObj.count += 1
+      }
+    })
+
+    const maxAmount = Math.max(...days.map((d) => d.totalAmount), 1)
+
+    return days.map((d) => ({
+      ...d,
+      heightPct: d.totalAmount > 0 ? Math.max(Math.round((d.totalAmount / maxAmount) * 100), 12) : 0,
+    }))
+  }
+
+  const dailyChartData = getDailySpendingChart()
 
   return (
     <div
@@ -165,37 +199,55 @@ function Dashboard() {
 
             {/* Top Row: Balance & Quick Actions */}
             <section className="grid grid-cols-12 gap-gutter">
-              {/* Total Assets Card */}
-              <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-lg p-lg flex flex-col">
-                <div className="flex justify-between items-start mb-md">
+              {/* Daily Spending Card */}
+              <div className="col-span-12 lg:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-lg p-lg flex flex-col justify-between">
+                <div className="flex justify-between items-center mb-md">
                   <div>
-                    <h3 className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant mb-xs">
-                      Total Assets
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
+                      Daily Spending
                     </h3>
-                    <div className="text-4xl font-semibold text-on-surface">
-                      ₹{(user.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}{' '}
-                      <span className="text-base text-on-tertiary-container ml-2 font-normal">
-                        INR
-                      </span>
-                    </div>
+                    <p className="text-xs text-on-surface-variant mt-0.5 font-medium">
+                      Daily spending activity over the last 7 days
+                    </p>
                   </div>
-                  <div className="flex items-center gap-1 bg-tertiary-fixed-dim/10 text-on-tertiary-container px-2 py-1 rounded-sm border border-tertiary-fixed-dim/20">
-                    <span className="material-symbols-outlined text-[16px]">trending_up</span>
-                    <span className="font-mono text-xs font-semibold">+0.0%</span>
+                  <div className="flex items-center gap-1.5 bg-surface-container text-on-surface-variant px-3 py-1 rounded text-xs font-semibold border border-outline-variant/60">
+                    <span className="material-symbols-outlined text-[16px] text-primary">bar_chart</span>
+                    <span>7-Day Spending</span>
                   </div>
                 </div>
 
-                {/* Visual Chart representation */}
-                <div className="flex-1 min-h-[140px] relative border-b border-outline-variant/50 flex items-end pb-2 gap-3 mt-md">
-                  {chartData.map((val, idx) => (
-                    <div
-                      key={idx}
-                      className={`w-full rounded-t-sm transition-all duration-300 hover:opacity-85 cursor-pointer ${
-                        idx === chartData.length - 1 ? 'bg-primary' : 'bg-surface-container'
-                      }`}
-                      style={{ height: `${val}%` }}
-                      title={`Period ${idx + 1}: ${val}%`}
-                    ></div>
+                {/* Visual Chart representation of Daily Spending */}
+                <div className="flex-1 min-h-[160px] relative border-b border-outline-variant/50 flex items-end pb-2 gap-3 mt-md">
+                  {dailyChartData.map((day, idx) => (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-1 h-full justify-end group">
+                      {/* Amount above bar for spending days */}
+                      <div className="text-[11px] font-mono font-bold h-4 text-on-surface">
+                        {day.totalAmount > 0 ? `₹${day.totalAmount}` : ''}
+                      </div>
+
+                      {/* Black Spending Bar */}
+                      <div className="w-full h-[110px] flex items-end justify-center">
+                        {day.totalAmount > 0 && (
+                          <div
+                            className="w-full bg-black rounded-t transition-all duration-500 shadow-sm"
+                            style={{ height: `${day.heightPct}%` }}
+                            title={`${day.dayLabel}: Spent ₹${day.totalAmount.toLocaleString('en-IN')} (${day.count} transfer(s))`}
+                          />
+                        )}
+                      </div>
+
+                      {/* Day Label with ₹0 near the day for 0 spending days */}
+                      <div className="flex flex-col items-center mt-0.5">
+                        {day.totalAmount === 0 && (
+                          <span className="text-[10px] font-mono font-semibold text-on-surface-variant/50 -mb-0.5">
+                            ₹0
+                          </span>
+                        )}
+                        <span className="text-xs font-semibold text-on-surface-variant font-mono">
+                          {day.dayLabel}
+                        </span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -274,7 +326,7 @@ function Dashboard() {
                         </td>
                       </tr>
                     ) : (
-                      filteredTransactions.map((tx) => {
+                      filteredTransactions.slice(0, 5).map((tx) => {
                         const isSent = tx.direction === 'sent'
                         const otherPartyName = isSent ? tx.receiverName : tx.senderName
                         const otherPartyId = isSent ? tx.receiverPaymentId : tx.senderPaymentId
