@@ -9,6 +9,21 @@ function AdminDashboard() {
   const [pendingUsers, setPendingUsers] = useState([])
   const [approvedUsers, setApprovedUsers] = useState([])
   const [loading, setLoading] = useState(false)
+  const [adminName, setAdminName] = useState('Admin')
+
+  useEffect(() => {
+    try {
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        const u = JSON.parse(userStr)
+        if (u && u.name) {
+          setAdminName(u.name)
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse user in AdminDashboard', e)
+    }
+  }, [])
 
   const fetchUsers = useCallback(async (silent = false) => {
     try {
@@ -91,7 +106,7 @@ function AdminDashboard() {
               onClick={() => setActiveTab('profile')}
               className="flex items-center gap-3 cursor-pointer text-on-surface hover:opacity-80 transition-opacity focus:outline-none"
             >
-              <span className="text-sm font-medium">Profile</span>
+              <span className="text-sm font-medium">{adminName}</span>
               <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm overflow-hidden border border-outline-variant">
                 <span className="material-symbols-outlined text-[20px]">person</span>
               </div>
@@ -101,7 +116,7 @@ function AdminDashboard() {
 
         {/* Dynamic Content */}
         <div className="p-8 flex-1 overflow-auto bg-surface">
-          {(activeTab === 'profile' || activeTab === 'admin') && <AdminProfileView />}
+          {(activeTab === 'profile' || activeTab === 'admin' || activeTab === 'settings') && <AdminProfileView />}
           {activeTab === 'dashboard' && (
             <>
               {/* Page Title */}

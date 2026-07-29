@@ -19,6 +19,8 @@ export default function TransferMoney() {
   const [pin, setPin] = useState('')
   const [pinError, setPinError] = useState('')
   const [isVerifyingPin, setIsVerifyingPin] = useState(false)
+  const [pinLocked, setPinLocked] = useState(false)
+  const [pinLockMessage, setPinLockMessage] = useState('')
   const [userBalance, setUserBalance] = useState(0)
   const [userName, setUserName] = useState('User')
   const [userPaymentId, setUserPaymentId] = useState('')
@@ -106,16 +108,31 @@ export default function TransferMoney() {
         setModalStep('none')
         setIsVerifyingPin(false)
         setPin('')
+        setPinLocked(false)
+        setPinLockMessage('')
         executeTransfer(verifiedPin)
       } else {
         setIsVerifyingPin(false)
-        setPinError(res.data?.message || 'Incorrect PIN')
         setPin('')
+        if (res.data?.locked) {
+          setPinLocked(true)
+          setPinLockMessage(res.data.message || 'Transfers are locked. Try again later.')
+          setModalStep('none')
+        } else {
+          setPinError(res.data?.message || 'Incorrect PIN')
+        }
       }
     } catch (err) {
       setIsVerifyingPin(false)
-      setPinError(err.response?.data?.message || 'Incorrect PIN')
       setPin('')
+      const errData = err.response?.data
+      if (errData?.locked) {
+        setPinLocked(true)
+        setPinLockMessage(errData.message || 'Transfers are locked. Try again later.')
+        setModalStep('none')
+      } else {
+        setPinError(errData?.message || 'Incorrect PIN')
+      }
     }
   }
 
@@ -309,6 +326,17 @@ export default function TransferMoney() {
               </div>
             </div>
 
+            {/* PIN Lock Banner */}
+            {pinLocked && (
+              <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-300 rounded-xl flex items-center gap-3 text-red-700">
+                <span className="material-symbols-outlined text-red-500 text-2xl flex-shrink-0">lock</span>
+                <div>
+                  <p className="font-bold text-sm">Transfers Locked</p>
+                  <p className="text-xs mt-0.5">{pinLockMessage}</p>
+                </div>
+              </div>
+            )}
+
             {/* Inline Transfer Error Notice */}
             {transferError && (
               <div className="mx-6 mt-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-xs font-semibold">
@@ -470,12 +498,12 @@ export default function TransferMoney() {
               <button
                 id="btn-send"
                 type="button"
-                disabled={!canSend}
+                disabled={!canSend || pinLocked}
                 onClick={() => { setModalStep('confirm'); setPin(''); setPinError(''); }}
                 className="bg-gray-800 text-white text-[13px] font-semibold px-6 py-2 rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
               >
-                <span className="material-symbols-outlined text-[18px]">send</span>
-                Send Money
+                <span className="material-symbols-outlined text-[18px]">{pinLocked ? 'lock' : 'send'}</span>
+                {pinLocked ? 'Locked' : 'Send Money'}
               </button>
             </div>
           </div>

@@ -85,4 +85,22 @@ const rejectUser = async (req, res) => {
     }
 };
 
-module.exports = { getPendingUsers, getApprovedUsers, approveUser, rejectUser };
+const getAdminProfile = async (req, res) => {
+    try {
+        const admin = await User.findById(req.user.id).select('-password -transactionPin');
+        if (!admin || admin.role !== 'admin') {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+        res.status(200).json({
+            name: admin.name,
+            email: admin.email,
+            phone: admin.phone,
+            status: admin.status,
+            loginHistory: admin.loginHistory || []
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+module.exports = { getPendingUsers, getApprovedUsers, approveUser, rejectUser, getAdminProfile };

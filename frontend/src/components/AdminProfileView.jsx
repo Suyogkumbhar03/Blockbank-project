@@ -3,27 +3,49 @@ import { useState, useEffect } from 'react'
 function AdminProfileView() {
   const [isEditing, setIsEditing] = useState(false)
   const [savedNotice, setSavedNotice] = useState(false)
+  const [loginHistory, setLoginHistory] = useState([])
 
   const [adminData, setAdminData] = useState({
-    fullName: 'Alexander J. Vance',
-    email: 'a.vance@blockbank.int',
+    fullName: 'System Admin',
+    email: 'admin@blockbank.com',
     phone: '+1 (555) 012-9984',
     dateOfBirth: 'May 12, 1985',
-    status: 'ACTIVE',
+    status: 'APPROVED',
     profilePhoto: '',
   })
 
   useEffect(() => {
-    const saved = localStorage.getItem('adminUser')
-    if (saved) {
-      try {
+    // Check localStorage for logged-in user data
+    try {
+      const storedUserStr = localStorage.getItem('user')
+      if (storedUserStr) {
+        const u = JSON.parse(storedUserStr)
+        if (u) {
+          setAdminData((prev) => ({
+            ...prev,
+            fullName: u.name || 'System Admin',
+            email: u.email || prev.email,
+          }))
+          if (Array.isArray(u.loginHistory) && u.loginHistory.length > 0) {
+            setLoginHistory(u.loginHistory)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error reading stored user', err)
+    }
+
+    // Check localStorage for custom saved admin profile data/photo
+    try {
+      const saved = localStorage.getItem('adminUser')
+      if (saved) {
         const parsed = JSON.parse(saved)
         if (parsed) {
           setAdminData((prev) => ({ ...prev, ...parsed }))
         }
-      } catch (e) {
-        console.error(e)
       }
+    } catch (e) {
+      console.error('Error reading saved adminUser', e)
     }
   }, [])
 
@@ -56,9 +78,37 @@ function AdminProfileView() {
     setTimeout(() => setSavedNotice(false), 3000)
   }
 
+  const formatDate = (dateStr) => {
+    try {
+      const d = new Date(dateStr)
+      if (isNaN(d.getTime())) return dateStr
+      return d.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    } catch {
+      return dateStr
+    }
+  }
+
+  const formatTime = (dateStr) => {
+    try {
+      const d = new Date(dateStr)
+      if (isNaN(d.getTime())) return ''
+      return d.toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      })
+    } catch {
+      return ''
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 animate-fadeIn">
-      {/* Breadcrumb & Header */}
+      {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-3xl font-bold text-on-surface tracking-tight">
@@ -123,7 +173,7 @@ function AdminProfileView() {
 
             {/* Name */}
             <h2 className="text-xl font-bold text-on-surface text-center mt-2">
-              {adminData.fullName}
+              {adminData.fullName || 'System Admin'}
             </h2>
           </div>
 
@@ -135,12 +185,12 @@ function AdminProfileView() {
               Status
             </span>
             <span className="bg-emerald-100 text-emerald-700 font-bold uppercase text-[11px] px-2.5 py-1 rounded inline-block">
-              {adminData.status}
+              {adminData.status || 'APPROVED'}
             </span>
           </div>
         </div>
 
-        {/* Right Section: Administrative Details & Last Login */}
+        {/* Right Section: Administrative Details & Login History */}
         <div className="col-span-12 lg:col-span-8 flex flex-col gap-6">
           {/* Administrative Details Card */}
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
@@ -192,7 +242,7 @@ function AdminProfileView() {
                   type="text"
                   name="phone"
                   disabled={!isEditing}
-                  value={adminData.phone}
+                  value={adminData.phone || '+1 (555) 012-9984'}
                   onChange={handleChange}
                   className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${
                     !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
@@ -209,7 +259,7 @@ function AdminProfileView() {
                   type="text"
                   name="dateOfBirth"
                   disabled={!isEditing}
-                  value={adminData.dateOfBirth}
+                  value={adminData.dateOfBirth || 'May 12, 1985'}
                   onChange={handleChange}
                   className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${
                     !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
@@ -219,27 +269,72 @@ function AdminProfileView() {
             </form>
           </div>
 
-          {/* Last Login Card */}
+          {/* Login History Card */}
           <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
-            <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-4">
-              Last Login
-            </span>
-
-            <div className="flex items-start gap-3 bg-surface-container-low p-3.5 rounded-lg border border-outline-variant/50 mb-3">
-              <div className="w-10 h-10 rounded-md bg-surface-container flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[20px] text-on-surface-variant">
-                  history
-                </span>
-              </div>
-              <div>
-                <div className="font-bold text-sm text-on-surface">
-                  Oct 24, 2023 • 09:14 AM
-                </div>
-                <div className="text-xs text-on-surface-variant font-mono mt-0.5">
-                  IP: 192.168.1.104 (HQ Internal)
-                </div>
-              </div>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
+                Login History
+              </span>
+              <span className="text-[11px] text-on-surface-variant font-medium bg-surface-container px-2 py-0.5 rounded-full">
+                Last 3 sessions
+              </span>
             </div>
+
+            {loginHistory.length === 0 ? (
+              <div className="flex items-start gap-3 bg-surface-container-low p-3.5 rounded-lg border border-outline-variant/50">
+                <div className="w-10 h-10 rounded-md bg-surface-container flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[20px] text-on-surface-variant">
+                    history
+                  </span>
+                </div>
+                <div>
+                  <div className="font-bold text-sm text-on-surface">
+                    Oct 24, 2023 • 09:14 AM
+                  </div>
+                  <div className="text-xs text-on-surface-variant font-mono mt-0.5">
+                    IP: 192.168.1.104 (HQ Internal)
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {loginHistory.map((ts, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 bg-surface-container-low border border-outline-variant/50 rounded-lg px-4 py-3"
+                  >
+                    {/* Icon */}
+                    <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${idx === 0 ? 'bg-emerald-100' : 'bg-surface-container'}`}>
+                      <span className={`material-symbols-outlined text-[18px] ${idx === 0 ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
+                        {idx === 0 ? 'verified_user' : 'history'}
+                      </span>
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-on-surface">
+                          {formatDate(ts)} • {formatTime(ts)}
+                        </span>
+                        {idx === 0 && (
+                          <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                            Most Recent
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-on-surface-variant mt-0.5">
+                        {idx === 0 ? 'Current session login' : `Previous session #${idx + 1}`}
+                      </div>
+                    </div>
+
+                    {/* Session number badge */}
+                    <span className="text-[11px] font-mono text-on-surface-variant opacity-50 shrink-0">
+                      #{idx + 1}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
