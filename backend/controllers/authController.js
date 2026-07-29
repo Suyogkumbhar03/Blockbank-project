@@ -119,4 +119,59 @@ const loginUser = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser };
+const getUserProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password -transactionPin');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.status(200).json({
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            dateOfBirth: user.dateOfBirth,
+            status: user.status,
+            accountNumber: user.accountNumber,
+            paymentId: user.paymentId,
+            balance: user.balance,
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+const updateUserProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const { name, phone, dateOfBirth } = req.body;
+
+        if (name !== undefined) user.name = name.trim();
+        if (phone !== undefined) user.phone = phone.trim();
+        if (dateOfBirth !== undefined) {
+            const dob = new Date(dateOfBirth);
+            if (!isNaN(dob.getTime())) user.dateOfBirth = dob;
+        }
+
+        await user.save({ validateModifiedOnly: true });
+
+        res.status(200).json({
+            message: 'Profile updated successfully',
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            dateOfBirth: user.dateOfBirth,
+            status: user.status,
+            accountNumber: user.accountNumber,
+            paymentId: user.paymentId,
+            balance: user.balance,
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile };

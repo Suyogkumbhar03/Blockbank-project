@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
+import api from '../services/api'
 
 function Profile() {
   const navigate = useNavigate()
@@ -8,6 +9,8 @@ function Profile() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [copied, setCopied] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
+  const [saveError, setSaveError] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
   // Profile Form States
@@ -29,18 +32,23 @@ function Profile() {
   })
 
   useEffect(() => {
+    let isMounted = true
+
+    // Seed from localStorage immediately so UI is not blank
     const userStr = localStorage.getItem('user')
     if (userStr) {
       try {
         const parsed = JSON.parse(userStr)
-        if (parsed) {
+        if (parsed && isMounted) {
           const loadedUser = {
-            name: parsed.name || 'Alex Thorne',
-            email: parsed.email || 'alex.thorne@corporate.net',
-            phone: parsed.phone || '+1 (555) 012-3456',
-            dateOfBirth: parsed.dateOfBirth || '1985-05-12',
-            paymentId: parsed.paymentId || 'BB-8892-XT-9102-LDR',
-            accountNumber: parsed.accountNumber || 'ACC-9842104921',
+            name: parsed.name || '',
+            email: parsed.email || '',
+            phone: parsed.phone || '',
+            dateOfBirth: parsed.dateOfBirth
+              ? new Date(parsed.dateOfBirth).toISOString().split('T')[0]
+              : '',
+            paymentId: parsed.paymentId || '',
+            accountNumber: parsed.accountNumber || '',
             profilePhoto: parsed.profilePhoto || '',
           }
           setUser(loadedUser)
@@ -55,6 +63,37 @@ function Profile() {
         console.error('Failed to parse user data from localStorage', err)
       }
     }
+
+    // Fetch authoritative data from backend
+    api.get('/profile')
+      .then((res) => {
+        if (res.data && isMounted) {
+          const dobStr = res.data.dateOfBirth
+            ? new Date(res.data.dateOfBirth).toISOString().split('T')[0]
+            : ''
+          const fresh = {
+            name: res.data.name || '',
+            email: res.data.email || '',
+            phone: res.data.phone || '',
+            dateOfBirth: dobStr,
+            paymentId: res.data.paymentId || '',
+            accountNumber: res.data.accountNumber || '',
+            profilePhoto: JSON.parse(userStr || '{}')?.profilePhoto || '',
+          }
+          setUser(fresh)
+          setFormData({
+            name: fresh.name,
+            email: fresh.email,
+            phone: fresh.phone,
+            dateOfBirth: fresh.dateOfBirth,
+          })
+          // Keep localStorage in sync
+          localStorage.setItem('user', JSON.stringify({ ...fresh, token: localStorage.getItem('token') }))
+        }
+      })
+      .catch((err) => console.error('Failed to fetch profile:', err))
+
+    return () => { isMounted = false }
   }, [])
 
   const handleChange = (e) => {
@@ -78,20 +117,45 @@ function Profile() {
     }
   }
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     if (e) e.preventDefault()
-    const updatedUser = {
-      ...user,
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      dateOfBirth: formData.dateOfBirth,
+    setIsSaving(true)
+    setSaveError('')
+    try {
+      const payload = {
+        name: formData.name,
+        phone: formData.phone,
+        dateOfBirth: formData.dateOfBirth,
+      }
+      const res = await api.put('/profile', payload)
+      const dobStr = res.data.dateOfBirth
+        ? new Date(res.data.dateOfBirth).toISOString().split('T')[0]
+        : formData.dateOfBirth
+      const updatedUser = {
+        ...user,
+        name: res.data.name || formData.name,
+        email: res.data.email || user.email,
+        phone: res.data.phone || formData.phone,
+        dateOfBirth: dobStr,
+      }
+      setUser(updatedUser)
+      setFormData({
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        dateOfBirth: updatedUser.dateOfBirth,
+      })
+      localStorage.setItem('user', JSON.stringify(updatedUser))
+      setIsEditing(false)
+      setSavedSuccess(true)
+      setTimeout(() => setSavedSuccess(false), 3000)
+    } catch (err) {
+      console.error('Failed to save profile:', err)
+      const errMsg = err.response?.data?.message || err.message || 'Failed to save'
+      setSaveError(`Save failed: ${errMsg}`)
+    } finally {
+      setIsSaving(false)
     }
-    setUser(updatedUser)
-    localStorage.setItem('user', JSON.stringify(updatedUser))
-    setIsEditing(false)
-    setSavedSuccess(true)
-    setTimeout(() => setSavedSuccess(false), 3000)
   }
 
   const handleCopyPaymentId = () => {
@@ -179,20 +243,29 @@ function Profile() {
               <button
                 type="button"
                 onClick={isEditing ? handleSave : () => setIsEditing(true)}
-                className="bg-black text-white hover:bg-slate-800 transition-colors px-5 py-2.5 rounded text-xs font-semibold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-sm"
+                disabled={isSaving}
+                className="bg-black text-white hover:bg-slate-800 transition-colors px-5 py-2.5 rounded text-xs font-semibold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 <span className="material-symbols-outlined text-[16px]">
-                  {isEditing ? 'check' : 'edit'}
+                  {isSaving ? 'hourglass_empty' : isEditing ? 'check' : 'edit'}
                 </span>
-                {isEditing ? 'Save Profile' : 'Edit Profile'}
+                {isSaving ? 'Saving…' : isEditing ? 'Save Profile' : 'Edit Profile'}
               </button>
             </div>
 
-            {/* Notification Toast */}
+            {/* Success Toast */}
             {savedSuccess && (
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded text-sm flex items-center gap-2 animate-fadeIn">
                 <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
                 <span>Profile changes saved successfully!</span>
+              </div>
+            )}
+
+            {/* Error Banner */}
+            {saveError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-red-500">error</span>
+                <span className="font-mono text-xs">{saveError}</span>
               </div>
             )}
 

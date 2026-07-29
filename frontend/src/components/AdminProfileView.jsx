@@ -3,6 +3,7 @@ import api from '../services/api'
 
 function AdminProfileView() {
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
   const [savedNotice, setSavedNotice] = useState(false)
   const [loginHistory, setLoginHistory] = useState([])
   const [loadingProfile, setLoadingProfile] = useState(true)
@@ -67,6 +68,7 @@ function AdminProfileView() {
             fullName: res.data.name || prev.fullName,
             email: res.data.email || prev.email,
             phone: res.data.phone || prev.phone,
+            dateOfBirth: res.data.dateOfBirth ? new Date(res.data.dateOfBirth).toISOString().split('T')[0] : prev.dateOfBirth,
             status: res.data.status ? res.data.status.toUpperCase() : 'APPROVED',
           }))
 
@@ -115,12 +117,44 @@ function AdminProfileView() {
     }
   }
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault()
-    localStorage.setItem('adminUser', JSON.stringify(adminData))
-    setIsEditing(false)
-    setSavedNotice(true)
-    setTimeout(() => setSavedNotice(false), 3000)
+    setIsSaving(true)
+    setApiError('')
+    try {
+      const payload = {
+        name: adminData.fullName,
+        phone: adminData.phone,
+        dateOfBirth: adminData.dateOfBirth,
+      }
+      const res = await api.put('/admin/profile', payload)
+      // Sync state with what DB actually saved
+      setAdminData((prev) => ({
+        ...prev,
+        fullName: res.data.name || prev.fullName,
+        email: res.data.email || prev.email,
+        phone: res.data.phone || prev.phone,
+        dateOfBirth: res.data.dateOfBirth
+          ? new Date(res.data.dateOfBirth).toISOString().split('T')[0]
+          : prev.dateOfBirth,
+        status: res.data.status ? res.data.status.toUpperCase() : prev.status,
+      }))
+      // Keep localStorage in sync too
+      localStorage.setItem('adminUser', JSON.stringify({
+        ...adminData,
+        fullName: res.data.name || adminData.fullName,
+        phone: res.data.phone || adminData.phone,
+      }))
+      setIsEditing(false)
+      setSavedNotice(true)
+      setTimeout(() => setSavedNotice(false), 3000)
+    } catch (err) {
+      console.error('Failed to update admin profile:', err)
+      const errMsg = err.response?.data?.message || err.message || 'Failed to save'
+      setApiError(`Save failed: ${errMsg}`)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const formatDate = (dateStr) => {
@@ -164,12 +198,13 @@ function AdminProfileView() {
         <button
           type="button"
           onClick={isEditing ? handleSave : () => setIsEditing(true)}
-          className="bg-black text-white hover:bg-slate-800 transition-colors px-5 py-2.5 rounded text-xs font-semibold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-sm"
+          disabled={isSaving}
+          className="bg-black text-white hover:bg-slate-800 transition-colors px-5 py-2.5 rounded text-xs font-semibold uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <span className="material-symbols-outlined text-[16px]">
-            {isEditing ? 'check' : 'edit'}
+            {isSaving ? 'hourglass_empty' : isEditing ? 'check' : 'edit'}
           </span>
-          {isEditing ? 'Save Profile' : 'Edit Profile'}
+          {isSaving ? 'Saving…' : isEditing ? 'Save Profile' : 'Edit Profile'}
         </button>
       </div>
 

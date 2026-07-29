@@ -95,6 +95,7 @@ const getAdminProfile = async (req, res) => {
             name: admin.name,
             email: admin.email,
             phone: admin.phone,
+            dateOfBirth: admin.dateOfBirth,
             status: admin.status,
             loginHistory: admin.loginHistory || []
         });
@@ -103,4 +104,35 @@ const getAdminProfile = async (req, res) => {
     }
 };
 
-module.exports = { getPendingUsers, getApprovedUsers, approveUser, rejectUser, getAdminProfile };
+const updateAdminProfile = async (req, res) => {
+    try {
+        const admin = await User.findById(req.user.id);
+        if (!admin || admin.role !== 'admin') {
+            return res.status(403).json({ message: 'Access denied' });
+        }
+
+        const { name, phone, dateOfBirth } = req.body;
+
+        if (name !== undefined) admin.name = name.trim();
+        if (phone !== undefined) admin.phone = phone.trim();
+        if (dateOfBirth !== undefined) {
+            const dob = new Date(dateOfBirth);
+            if (!isNaN(dob.getTime())) admin.dateOfBirth = dob;
+        }
+
+        await admin.save({ validateModifiedOnly: true });
+
+        res.status(200).json({
+            message: 'Profile updated successfully',
+            name: admin.name,
+            email: admin.email,
+            phone: admin.phone,
+            dateOfBirth: admin.dateOfBirth,
+            status: admin.status,
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+module.exports = { getPendingUsers, getApprovedUsers, approveUser, rejectUser, getAdminProfile, updateAdminProfile };
