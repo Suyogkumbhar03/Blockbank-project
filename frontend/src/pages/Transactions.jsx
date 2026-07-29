@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
+import UserProfileButton from '../components/UserProfileButton'
 import api from '../services/api'
 
 function Transactions() {
@@ -13,6 +14,7 @@ function Transactions() {
     accountNumber: '',
     paymentId: '',
     balance: 0,
+    profilePhoto: '',
   })
 
   const [transactions, setTransactions] = useState([])
@@ -123,17 +125,7 @@ function Transactions() {
               </span>
             </button>
             <div className="h-6 w-px bg-outline-variant mx-2"></div>
-            <div className="flex items-center gap-2 text-on-surface-variant">
-              <span
-                className="material-symbols-outlined text-[28px] text-primary-fixed-dim"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                account_circle
-              </span>
-              <span className="text-xs font-semibold uppercase tracking-wider">
-                {user.name}
-              </span>
-            </div>
+            <UserProfileButton user={user} />
           </div>
         </header>
 

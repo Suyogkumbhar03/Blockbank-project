@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import Sidebar from '../components/Sidebar'
+import UserProfileButton from '../components/UserProfileButton'
 import api from '../services/api'
 
 export default function TransferMoney() {
@@ -24,6 +25,7 @@ export default function TransferMoney() {
   const [userBalance, setUserBalance] = useState(0)
   const [userName, setUserName] = useState('User')
   const [userPaymentId, setUserPaymentId] = useState('')
+  const [user, setUser] = useState({ name: 'User', profilePhoto: '' })
 
   // Processing & Error states for transfer
   const [isSending, setIsSending] = useState(false)
@@ -36,6 +38,7 @@ export default function TransferMoney() {
       try {
         const parsed = JSON.parse(userStr)
         if (parsed) {
+          setUser(parsed)
           if (parsed.balance !== undefined) setUserBalance(parsed.balance)
           if (parsed.name) setUserName(parsed.name)
           if (parsed.paymentId) setUserPaymentId(parsed.paymentId)
@@ -200,19 +203,7 @@ export default function TransferMoney() {
               <span className="material-symbols-outlined">dark_mode</span>
             </button>
             <div className="h-6 w-px bg-outline-variant mx-xs" />
-            <button
-              type="button"
-              onClick={() => navigate('/profile')}
-              className="flex items-center gap-sm text-primary text-[12px] font-medium tracking-[0.02em] hover:opacity-80 transition-opacity cursor-pointer focus:outline-none"
-            >
-              <span
-                className="material-symbols-outlined text-[32px]"
-                style={{ fontVariationSettings: "'FILL' 1" }}
-              >
-                account_circle
-              </span>
-              {userName}
-            </button>
+            <UserProfileButton user={user} />
           </div>
         </header>
 
