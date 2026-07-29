@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import api from '../services/api'
 import Sidebar from '../components/Sidebar'
 import AdminProfileView from '../components/AdminProfileView'
+import AdminTransactionsView from '../components/AdminTransactionsView'
+import TransactionVolumeChart from '../components/TransactionVolumeChart'
 
 function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -215,80 +217,8 @@ function AdminDashboard() {
 
               {/* Bottom Section */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-lg font-semibold text-on-surface">
-                      System Transaction Volume
-                    </h2>
-                    <div className="flex bg-surface-container rounded-md p-1">
-                      <button
-                        onClick={() => setChartRange('1D')}
-                        className={`px-3 py-1 text-xs font-medium rounded ${
-                          chartRange === '1D'
-                            ? 'bg-surface-container-lowest shadow-sm text-on-surface'
-                            : 'text-on-surface-variant hover:text-on-surface'
-                        }`}
-                      >
-                        1D
-                      </button>
-                      <button
-                        onClick={() => setChartRange('1W')}
-                        className={`px-3 py-1 text-xs font-medium rounded ${
-                          chartRange === '1W'
-                            ? 'bg-surface-container-lowest shadow-sm text-on-surface'
-                            : 'text-on-surface-variant hover:text-on-surface'
-                        }`}
-                      >
-                        1W
-                      </button>
-                      <button
-                        onClick={() => setChartRange('1M')}
-                        className={`px-3 py-1 text-xs font-medium rounded ${
-                          chartRange === '1M'
-                            ? 'bg-surface-container-lowest shadow-sm text-on-surface'
-                            : 'text-on-surface-variant hover:text-on-surface'
-                        }`}
-                      >
-                        1M
-                      </button>
-                    </div>
-                  </div>
-                  {/* Chart Container Placeholder */}
-                  <div className="relative w-full h-[300px] bg-[#f8fafc] rounded-md border border-[#e2e8f0] overflow-hidden flex items-end">
-                    <div className="absolute inset-0 flex flex-col justify-between py-6 pointer-events-none">
-                      <div className="w-full h-px bg-[#e2e8f0]"></div>
-                      <div className="w-full h-px bg-[#e2e8f0]"></div>
-                      <div className="w-full h-px bg-[#e2e8f0]"></div>
-                      <div className="w-full h-px bg-[#e2e8f0]"></div>
-                    </div>
-                    <svg
-                      viewBox="0 0 1000 300"
-                      preserveAspectRatio="none"
-                      className="absolute bottom-0 w-full h-[90%] opacity-80 z-10"
-                    >
-                      <defs>
-                        <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop
-                            offset="0%"
-                            stopColor="var(--color-primary)"
-                            stopOpacity="0.1"
-                          />
-                          <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      <path
-                        d="M0,250 C150,220 250,280 350,220 C450,160 550,150 600,250 C650,350 750,40 850,20 C920,0 970,180 1000,200 L1000,300 L0,300 Z"
-                        fill="url(#chartGradient)"
-                      />
-                      <path
-                        d="M0,250 C150,220 250,280 350,220 C450,160 550,150 600,250 C650,350 750,40 850,20 C920,0 970,180 1000,200"
-                        fill="none"
-                        stroke="var(--color-on-surface-variant)"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </div>
+                <div className="lg:col-span-2">
+                  <TransactionVolumeChart />
                 </div>
 
                 {/* Quick Actions */}
@@ -445,9 +375,9 @@ function AdminDashboard() {
             </div>
           )}
 
-          {(activeTab === 'transactions' ||
-            activeTab === 'explorer' ||
-            activeTab === 'fraud') && (
+          {activeTab === 'transactions' && <AdminTransactionsView />}
+
+          {(activeTab === 'explorer' || activeTab === 'fraud') && (
             <div className="flex items-center justify-center h-64">
               <p className="text-on-surface-variant">This section is under construction.</p>
             </div>
