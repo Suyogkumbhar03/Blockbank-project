@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
 
 const generateAccountNumber = () => {
     return 'BB' + Math.floor(1000000000 + Math.random() * 9000000000);
@@ -20,7 +21,7 @@ const getPendingUsers = async (req, res) => {
 
 const getApprovedUsers = async (req, res) => {
     try {
-        const approvedUsers = await User.find({ status: 'approved' }).select('-password');
+        const approvedUsers = await User.find({ status: 'approved', role: { $ne: 'admin' } }).select('-password');
         res.status(200).json(approvedUsers);
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
@@ -135,4 +136,21 @@ const updateAdminProfile = async (req, res) => {
     }
 };
 
-module.exports = { getPendingUsers, getApprovedUsers, approveUser, rejectUser, getAdminProfile, updateAdminProfile };
+const getAllTransactions = async (req, res) => {
+    try {
+        const transactions = await Transaction.find().sort({ timestamp: -1 });
+        res.status(200).json(transactions);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error fetching transactions', error: error.message });
+    }
+};
+
+module.exports = {
+    getPendingUsers,
+    getApprovedUsers,
+    approveUser,
+    rejectUser,
+    getAdminProfile,
+    updateAdminProfile,
+    getAllTransactions
+};
