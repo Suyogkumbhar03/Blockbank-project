@@ -31,9 +31,6 @@ function AdminProfile() {
             <button className="text-on-surface-variant hover:text-on-surface transition-colors">
               <span className="material-symbols-outlined text-[22px]">notifications</span>
             </button>
-            <button className="text-on-surface-variant hover:text-on-surface transition-colors">
-              <span className="material-symbols-outlined text-[22px]">dark_mode</span>
-            </button>
             <div className="h-6 w-px bg-surface-variant"></div>
             <div className="flex items-center gap-3 cursor-pointer text-on-surface">
               <span className="text-sm font-medium">Profile</span>

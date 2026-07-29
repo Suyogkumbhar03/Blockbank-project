@@ -8,7 +8,6 @@ function Transactions() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all') // all | sent | received
-  const [isDarkMode, setIsDarkMode] = useState(false)
   const [user, setUser] = useState({
     name: 'User',
     accountNumber: '',
@@ -85,11 +84,7 @@ function Transactions() {
   })
 
   return (
-    <div
-      className={`font-sans antialiased min-h-screen flex ${
-        isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-surface text-on-surface'
-      }`}
-    >
+    <div className="font-sans antialiased min-h-screen flex bg-surface text-on-surface">
       {/* Shared User Sidebar */}
       <Sidebar role="user" />
 
@@ -115,14 +110,6 @@ function Transactions() {
             <button className="p-2 text-on-surface-variant hover:text-on-surface transition-colors rounded-full hover:bg-surface-container relative">
               <span className="material-symbols-outlined">notifications</span>
               <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
-            </button>
-            <button
-              className="p-2 text-on-surface-variant hover:text-on-surface transition-colors rounded-full hover:bg-surface-container"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-            >
-              <span className="material-symbols-outlined">
-                {isDarkMode ? 'light_mode' : 'dark_mode'}
-              </span>
             </button>
             <div className="h-6 w-px bg-outline-variant mx-2"></div>
             <UserProfileButton user={user} />
@@ -162,31 +149,28 @@ function Transactions() {
             <div className="flex gap-2 border-b border-outline-variant pb-2">
               <button
                 onClick={() => setFilterType('all')}
-                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${
-                  filterType === 'all'
+                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${filterType === 'all'
                     ? 'bg-gray-900 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 All Transactions ({transactions.length})
               </button>
               <button
                 onClick={() => setFilterType('sent')}
-                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${
-                  filterType === 'sent'
+                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${filterType === 'sent'
                     ? 'bg-gray-900 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 Sent ({transactions.filter((t) => t.direction === 'sent').length})
               </button>
               <button
                 onClick={() => setFilterType('received')}
-                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${
-                  filterType === 'received'
+                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${filterType === 'received'
                     ? 'bg-gray-900 text-white'
                     : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                  }`}
               >
                 Received ({transactions.filter((t) => t.direction === 'received').length})
               </button>

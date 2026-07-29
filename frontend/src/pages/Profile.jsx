@@ -7,7 +7,6 @@ import UserProfileButton from '../components/UserProfileButton'
 function Profile() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
-  const [isDarkMode, setIsDarkMode] = useState(false)
   const [copied, setCopied] = useState(false)
   const [savedSuccess, setSavedSuccess] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -166,11 +165,7 @@ function Profile() {
   }
 
   return (
-    <div
-      className={`font-sans antialiased min-h-screen flex ${
-        isDarkMode ? 'dark bg-slate-950 text-slate-100' : 'bg-surface text-on-surface'
-      }`}
-    >
+    <div className="font-sans antialiased min-h-screen flex bg-surface text-on-surface">
       {/* Shared User Sidebar */}
       <Sidebar role="user" />
 
@@ -197,16 +192,8 @@ function Profile() {
               <span className="material-symbols-outlined text-[22px]">notifications</span>
               <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
             </button>
-            <button
-              className="p-2 text-on-surface-variant hover:text-on-surface transition-colors rounded-full hover:bg-surface-container"
-              onClick={() => setIsDarkMode(!isDarkMode)}
-            >
-              <span className="material-symbols-outlined text-[22px]">
-                {isDarkMode ? 'light_mode' : 'dark_mode'}
-              </span>
-            </button>
             <div className="h-6 w-px bg-outline-variant mx-2"></div>
-            
+
             {/* Top Right Profile Button */}
             <UserProfileButton user={user} />
           </div>
@@ -384,9 +371,8 @@ function Profile() {
                         disabled={!isEditing}
                         value={formData.name}
                         onChange={handleChange}
-                        className={`input-field w-full h-10 px-3 rounded font-mono text-sm ${
-                          !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                        }`}
+                        className={`input-field w-full h-10 px-3 rounded font-mono text-sm ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                          }`}
                       />
                     </div>
 
@@ -401,9 +387,8 @@ function Profile() {
                         disabled={!isEditing}
                         value={formData.email}
                         onChange={handleChange}
-                        className={`input-field w-full h-10 px-3 rounded font-mono text-sm ${
-                          !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                        }`}
+                        className={`input-field w-full h-10 px-3 rounded font-mono text-sm ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                          }`}
                       />
                     </div>
 
@@ -418,9 +403,8 @@ function Profile() {
                         disabled={!isEditing}
                         value={formData.phone}
                         onChange={handleChange}
-                        className={`input-field w-full h-10 px-3 rounded font-mono text-sm ${
-                          !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                        }`}
+                        className={`input-field w-full h-10 px-3 rounded font-mono text-sm ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                          }`}
                       />
                     </div>
 
@@ -436,9 +420,8 @@ function Profile() {
                           disabled={!isEditing}
                           value={formData.dateOfBirth}
                           onChange={handleChange}
-                          className={`input-field w-full h-10 px-3 rounded font-mono text-sm pr-8 ${
-                            !isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                          }`}
+                          className={`input-field w-full h-10 px-3 rounded font-mono text-sm pr-8 ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
+                            }`}
                         />
                       </div>
                     </div>

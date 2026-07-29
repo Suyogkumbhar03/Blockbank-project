@@ -199,9 +199,6 @@ export default function TransferMoney() {
             <button className="text-on-surface-variant hover:text-on-surface transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container">
               <span className="material-symbols-outlined">notifications</span>
             </button>
-            <button className="text-on-surface-variant hover:text-on-surface transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container">
-              <span className="material-symbols-outlined">dark_mode</span>
-            </button>
             <div className="h-6 w-px bg-outline-variant mx-xs" />
             <UserProfileButton user={user} />
           </div>

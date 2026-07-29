@@ -97,9 +97,6 @@ function AdminDashboard() {
             <button className="text-on-surface-variant hover:text-on-surface transition-colors">
               <span className="material-symbols-outlined text-[22px]">notifications</span>
             </button>
-            <button className="text-on-surface-variant hover:text-on-surface transition-colors">
-              <span className="material-symbols-outlined text-[22px]">dark_mode</span>
-            </button>
             <div className="h-6 w-px bg-surface-variant"></div>
             <button
               type="button"
