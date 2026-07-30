@@ -71,14 +71,17 @@ function Profile() {
           const dobStr = res.data.dateOfBirth
             ? new Date(res.data.dateOfBirth).toISOString().split('T')[0]
             : ''
+          const existingStored = JSON.parse(localStorage.getItem('user') || '{}')
           const fresh = {
-            name: res.data.name || '',
-            email: res.data.email || '',
-            phone: res.data.phone || '',
+            ...existingStored,
+            name: res.data.name || existingStored.name || '',
+            email: res.data.email || existingStored.email || '',
+            phone: res.data.phone || existingStored.phone || '',
             dateOfBirth: dobStr,
-            paymentId: res.data.paymentId || '',
-            accountNumber: res.data.accountNumber || '',
-            profilePhoto: JSON.parse(userStr || '{}')?.profilePhoto || '',
+            paymentId: res.data.paymentId || existingStored.paymentId || '',
+            accountNumber: res.data.accountNumber || existingStored.accountNumber || '',
+            balance: res.data.balance !== undefined ? res.data.balance : (existingStored.balance || 0),
+            profilePhoto: existingStored?.profilePhoto || '',
           }
           setUser(fresh)
           setFormData({
@@ -87,7 +90,7 @@ function Profile() {
             phone: fresh.phone,
             dateOfBirth: fresh.dateOfBirth,
           })
-          // Keep localStorage in sync
+          // Keep localStorage in sync without losing balance or other properties
           localStorage.setItem('user', JSON.stringify({ ...fresh, token: localStorage.getItem('token') }))
         }
       })
@@ -131,12 +134,15 @@ function Profile() {
       const dobStr = res.data.dateOfBirth
         ? new Date(res.data.dateOfBirth).toISOString().split('T')[0]
         : formData.dateOfBirth
+      const stored = JSON.parse(localStorage.getItem('user') || '{}')
       const updatedUser = {
+        ...stored,
         ...user,
         name: res.data.name || formData.name,
         email: res.data.email || user.email,
         phone: res.data.phone || formData.phone,
         dateOfBirth: dobStr,
+        balance: res.data.balance !== undefined ? res.data.balance : (stored.balance || user.balance || 0),
       }
       setUser(updatedUser)
       setFormData({

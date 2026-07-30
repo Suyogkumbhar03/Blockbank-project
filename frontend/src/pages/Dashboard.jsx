@@ -19,6 +19,7 @@ function Dashboard() {
   const [loadingTxs, setLoadingTxs] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
     const userStr = localStorage.getItem('user')
     if (userStr) {
       try {
@@ -30,6 +31,29 @@ function Dashboard() {
         console.error('Failed to parse user data from localStorage', err)
       }
     }
+
+    // Fetch authoritative user profile and balance from backend
+    api.get('/profile')
+      .then((res) => {
+        if (res.data && isMounted) {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}')
+          const updatedUser = {
+            ...stored,
+            name: res.data.name || stored.name || '',
+            email: res.data.email || stored.email || '',
+            phone: res.data.phone || stored.phone || '',
+            dateOfBirth: res.data.dateOfBirth || stored.dateOfBirth || '',
+            accountNumber: res.data.accountNumber || stored.accountNumber || '',
+            paymentId: res.data.paymentId || stored.paymentId || '',
+            balance: res.data.balance !== undefined ? res.data.balance : (stored.balance || 0),
+          }
+          setUser(updatedUser)
+          localStorage.setItem('user', JSON.stringify(updatedUser))
+        }
+      })
+      .catch((err) => console.error('Failed to fetch profile in Dashboard:', err))
+
+    return () => { isMounted = false }
   }, [])
 
   // Fetch real transaction history

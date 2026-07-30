@@ -33,6 +33,7 @@ export default function TransferMoney() {
   const [transferError, setTransferError] = useState('')
 
   useEffect(() => {
+    let isMounted = true
     const userStr = localStorage.getItem('user')
     if (userStr) {
       try {
@@ -47,6 +48,32 @@ export default function TransferMoney() {
         console.error('Failed to parse stored user in TransferMoney', err)
       }
     }
+
+    // Fetch authoritative user profile and balance from backend
+    api.get('/profile')
+      .then((res) => {
+        if (res.data && isMounted) {
+          const stored = JSON.parse(localStorage.getItem('user') || '{}')
+          const updatedUser = {
+            ...stored,
+            name: res.data.name || stored.name || '',
+            email: res.data.email || stored.email || '',
+            phone: res.data.phone || stored.phone || '',
+            dateOfBirth: res.data.dateOfBirth || stored.dateOfBirth || '',
+            accountNumber: res.data.accountNumber || stored.accountNumber || '',
+            paymentId: res.data.paymentId || stored.paymentId || '',
+            balance: res.data.balance !== undefined ? res.data.balance : (stored.balance || 0),
+          }
+          setUser(updatedUser)
+          if (res.data.balance !== undefined) setUserBalance(res.data.balance)
+          if (res.data.name) setUserName(res.data.name)
+          if (res.data.paymentId) setUserPaymentId(res.data.paymentId)
+          localStorage.setItem('user', JSON.stringify(updatedUser))
+        }
+      })
+      .catch((err) => console.error('Failed to fetch profile in TransferMoney:', err))
+
+    return () => { isMounted = false }
   }, [])
 
   const isVerified = verifyState === 'verified' && verifiedRecipient !== null
