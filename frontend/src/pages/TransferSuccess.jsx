@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import { jsPDF } from "jspdf"
 
 function TransferSuccess() {
   const navigate = useNavigate()
@@ -62,6 +63,27 @@ function TransferSuccess() {
     navigator.clipboard.writeText(txId)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleDownloadReceipt = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(22);
+    doc.text("Blockbank Receipt", 20, 20);
+
+    doc.setFontSize(14);
+    doc.text("Transaction Confirmed!", 20, 35);
+    
+    doc.setFontSize(12);
+    doc.text(`Amount: INR ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 20, 50);
+    doc.text(`Receiver: ${receiverName}`, 20, 60);
+    doc.text(`Date & Time: ${currentDateStr}`, 20, 70);
+    doc.text(`Transaction ID: ${txId}`, 20, 80);
+    doc.text(`Blockchain Block: #${blockNum}`, 20, 90);
+    
+    doc.text("---------------------------------------------------------", 20, 105);
+    doc.text("Thank you for using Blockbank!", 20, 115);
+
+    doc.save(`receipt_${txId}.pdf`);
   }
 
   return (
@@ -274,6 +296,7 @@ function TransferSuccess() {
 
           <div style={{ display: 'flex', gap: 10 }}>
             <button
+              onClick={handleDownloadReceipt}
               style={{
                 flex: 1,
                 background: '#fff',
