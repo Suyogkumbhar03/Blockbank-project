@@ -18,6 +18,7 @@ export default function Balance() {
 
   // Security PIN state
   const [isUnlocked, setIsUnlocked] = useState(false)
+  const [isLoaderVisible, setIsLoaderVisible] = useState(false)
   const [pin, setPin] = useState('')
   const [pinError, setPinError] = useState('')
   const [isVerifyingPin, setIsVerifyingPin] = useState(false)
@@ -73,8 +74,12 @@ export default function Balance() {
     try {
       const res = await api.post('/transfer/verify-pin', { pin })
       if (res.data && res.data.valid) {
-        setIsUnlocked(true)
         setPin('')
+        setIsLoaderVisible(true)
+        setTimeout(() => {
+          setIsLoaderVisible(false)
+          setIsUnlocked(true)
+        }, 1500)
       } else {
         setPinError(res.data?.message || 'Incorrect PIN')
         setPin('')
@@ -122,6 +127,34 @@ export default function Balance() {
 
         {/* Page Canvas */}
         {!isUnlocked ? (
+          isLoaderVisible ? (
+            <main className="flex-1 mt-16 flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] bg-surface-container/50 p-6">
+              <div className="w-full max-w-[460px] bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 shadow-md flex flex-col items-center justify-center text-center min-h-[350px]">
+                
+                <div className="relative w-28 h-28 mb-8 flex items-center justify-center">
+                  {/* Track */}
+                  <div className="absolute inset-0 rounded-full border-[3px] border-outline-variant/50"></div>
+                  
+                  {/* Spinning dot */}
+                  <div className="absolute inset-0 animate-spin" style={{ animationDuration: '1.2s', animationTimingFunction: 'linear' }}>
+                    <div className="absolute top-[1.5px] left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-black rounded-full shadow-[0_0_10px_rgba(0,0,0,0.3)]"></div>
+                  </div>
+
+                  {/* Bank Icon */}
+                  <div className="absolute inset-0 flex items-center justify-center text-black">
+                    <span className="material-symbols-outlined" style={{ fontSize: '50px' }}>account_balance</span>
+                  </div>
+                </div>
+
+                <h2 className="text-xl font-bold text-on-surface mb-2 animate-pulse">
+                  Fetching Balance...
+                </h2>
+                <p className="text-sm text-on-surface-variant leading-relaxed">
+                  Securely connecting to the ledger.
+                </p>
+              </div>
+            </main>
+          ) : (
           /* Locked PIN State - Centered Modal Screen */
           <main className="flex-1 mt-16 flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] bg-surface-container/50 p-6">
             <div className="w-full max-w-[460px] bg-surface-container-lowest border border-outline-variant rounded-2xl p-8 shadow-md flex flex-col items-center text-center">
@@ -163,6 +196,7 @@ export default function Balance() {
               </form>
             </div>
           </main>
+          )
         ) : (
           /* Unlocked Account Balance Card */
           <main className="flex-1 mt-16 p-8 bg-background overflow-y-auto">
