@@ -103,7 +103,23 @@ const loginUser = async (req, res) => {
             if (!capturedIP) capturedIP = 'Unknown';
 
             const newEntry = { timestamp: new Date(), ip: String(capturedIP) };
-            user.loginHistory = [newEntry, ...(user.loginHistory || [])].slice(0, 3);
+
+            const validPrevious = Array.isArray(user.loginHistory)
+                ? user.loginHistory
+                    .map(item => {
+                        if (item && typeof item === 'object' && item.timestamp) {
+                            return { timestamp: new Date(item.timestamp), ip: String(item.ip || 'Unknown') };
+                        }
+                        if (item && (item instanceof Date || typeof item === 'string' || typeof item === 'number')) {
+                            const d = new Date(item);
+                            return isNaN(d.getTime()) ? null : { timestamp: d, ip: 'Unknown' };
+                        }
+                        return null;
+                    })
+                    .filter(Boolean)
+                : [];
+
+            user.loginHistory = [newEntry, ...validPrevious].slice(0, 3);
             user.markModified('loginHistory');
             await user.save({ validateModifiedOnly: true });
         }
