@@ -10,14 +10,30 @@ function TransferSuccess() {
   const [confetti, setConfetti] = useState([])
   const styleRef = useRef(null)
 
-  // Dynamic transaction data from router state or fallback
-  const tx = location.state?.transaction
+  // Dynamic transaction data from router state or sessionStorage fallback
+  const getTransaction = () => {
+    if (location.state?.transaction) {
+      return location.state.transaction
+    }
+    try {
+      const stored = sessionStorage.getItem('lastTransaction')
+      if (stored) return JSON.parse(stored)
+    } catch (e) {
+      console.error('Failed to parse lastTransaction from sessionStorage', e)
+    }
+    return null
+  }
+
+  const tx = getTransaction()
   const txId = tx?.transactionId || 'TX-9F8A48B94ABF'
   const amount = tx?.amount || 0
   const receiverName = tx?.receiverName || 'Recipient'
   const blockNum = Math.floor(100000 + Math.random() * 900000)
 
   useEffect(() => {
+    // Scroll window to top immediately on mount so receipt is visible
+    window.scrollTo(0, 0)
+
     // Inject keyframe CSS
     const style = document.createElement('style')
     style.innerHTML = `

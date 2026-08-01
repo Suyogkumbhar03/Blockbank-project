@@ -198,8 +198,17 @@ export default function TransferMoney() {
 
       setTransferSuccessState(true)
 
+      try {
+        if (apiRes.data?.transaction) {
+          sessionStorage.setItem('lastTransaction', JSON.stringify(apiRes.data.transaction))
+        }
+      } catch (e) {
+        console.error('Failed to store lastTransaction in sessionStorage', e)
+      }
+
       // Short delay to show success checkmark before navigating
       setTimeout(() => {
+        setIsSending(false)
         navigate('/success', {
           state: {
             transaction: apiRes.data.transaction,

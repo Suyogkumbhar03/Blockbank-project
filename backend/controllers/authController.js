@@ -142,7 +142,7 @@ const loginUser = async (req, res) => {
                 role: user.role,
                 accountNumber: user.accountNumber,
                 paymentId: user.paymentId,
-                balance: user.balance,
+                balance: user.balance !== undefined ? user.balance : 1000,
                 loginHistory: user.loginHistory || []
             }
         });
@@ -165,7 +165,7 @@ const getUserProfile = async (req, res) => {
             status: user.status,
             accountNumber: user.accountNumber,
             paymentId: user.paymentId,
-            balance: user.balance,
+            balance: user.balance !== undefined ? user.balance : 1000,
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
@@ -195,7 +195,7 @@ const updateUserProfile = async (req, res) => {
             status: user.status,
             accountNumber: user.accountNumber,
             paymentId: user.paymentId,
-            balance: user.balance,
+            balance: user.balance !== undefined ? user.balance : 1000,
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });

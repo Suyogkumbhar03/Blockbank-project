@@ -44,7 +44,7 @@ const approveUser = async (req, res) => {
 
         user.accountNumber = generateAccountNumber();
         user.paymentId = generatePaymentId(user.name);
-        user.balance = initialBalance || 0;
+        user.balance = (initialBalance !== undefined && initialBalance !== null && !isNaN(Number(initialBalance))) ? Number(initialBalance) : 1000;
         user.status = 'approved';
 
         await user.save();
