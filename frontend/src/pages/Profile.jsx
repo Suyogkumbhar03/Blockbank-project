@@ -152,6 +152,7 @@ function Profile() {
         dateOfBirth: updatedUser.dateOfBirth,
       })
       localStorage.setItem('user', JSON.stringify(updatedUser))
+      window.dispatchEvent(new Event('profileUpdated'))
       setIsEditing(false)
       setSavedSuccess(true)
       setTimeout(() => setSavedSuccess(false), 3000)

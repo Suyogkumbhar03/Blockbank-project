@@ -27,7 +27,11 @@ export default function UserProfileButton({ user: propUser }) {
 
     const handleStorageChange = () => loadUserFromStorage()
     window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
+    window.addEventListener('profileUpdated', handleStorageChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('profileUpdated', handleStorageChange)
+    }
   }, [])
 
   const user = (propUser && (propUser.name || propUser.profilePhoto)) ? propUser : localUser

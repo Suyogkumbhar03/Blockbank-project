@@ -27,6 +27,7 @@ api.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('adminActiveTab');
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
@@ -38,6 +39,7 @@ api.interceptors.response.use(
 export const logoutUser = () => {
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  localStorage.removeItem('adminActiveTab');
   window.location.href = '/login';
 };
 

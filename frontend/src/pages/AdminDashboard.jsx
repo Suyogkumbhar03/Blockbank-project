@@ -6,7 +6,14 @@ import AdminTransactionsView from '../components/AdminTransactionsView'
 import TransactionVolumeChart from '../components/TransactionVolumeChart'
 
 function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTabState] = useState(() => {
+    return localStorage.getItem('adminActiveTab') || 'dashboard'
+  })
+
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab)
+    localStorage.setItem('adminActiveTab', tab)
+  }
   const [chartRange, setChartRange] = useState('1D')
   const [pendingUsers, setPendingUsers] = useState([])
   const [approvedUsers, setApprovedUsers] = useState([])
@@ -14,16 +21,27 @@ function AdminDashboard() {
   const [adminName, setAdminName] = useState('Admin')
 
   useEffect(() => {
-    try {
-      const userStr = localStorage.getItem('user')
-      if (userStr) {
-        const u = JSON.parse(userStr)
-        if (u && u.name) {
-          setAdminName(u.name)
+    const loadAdminName = () => {
+      try {
+        const userStr = localStorage.getItem('user')
+        if (userStr) {
+          const u = JSON.parse(userStr)
+          if (u && u.name) {
+            setAdminName(u.name)
+          }
         }
+      } catch (e) {
+        console.error('Failed to parse user in AdminDashboard', e)
       }
-    } catch (e) {
-      console.error('Failed to parse user in AdminDashboard', e)
+    }
+
+    loadAdminName()
+    
+    window.addEventListener('profileUpdated', loadAdminName)
+    window.addEventListener('storage', loadAdminName)
+    return () => {
+      window.removeEventListener('profileUpdated', loadAdminName)
+      window.removeEventListener('storage', loadAdminName)
     }
   }, [])
 

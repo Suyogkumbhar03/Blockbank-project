@@ -145,6 +145,16 @@ function AdminProfileView() {
         fullName: res.data.name || adminData.fullName,
         phone: res.data.phone || adminData.phone,
       }))
+
+      // Sync global user for the dashboard header
+      const currentGlobalUserStr = localStorage.getItem('user');
+      if (currentGlobalUserStr) {
+        const currentGlobalUser = JSON.parse(currentGlobalUserStr);
+        currentGlobalUser.name = res.data.name || adminData.fullName;
+        localStorage.setItem('user', JSON.stringify(currentGlobalUser));
+      }
+
+      window.dispatchEvent(new Event('profileUpdated'))
       setIsEditing(false)
       setSavedNotice(true)
       setTimeout(() => setSavedNotice(false), 3000)
