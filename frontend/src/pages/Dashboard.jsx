@@ -189,11 +189,6 @@ function Dashboard() {
                   </div>
                 )}
               </div>
-              <div className="flex gap-sm">
-                <button className="px-md py-2 bg-surface-container-lowest border border-outline-variant text-primary text-xs font-semibold uppercase tracking-wider rounded hover:bg-surface-container transition-colors flex items-center gap-2 cursor-pointer">
-                  <span className="material-symbols-outlined text-[18px]">download</span> Export Report
-                </button>
-              </div>
             </section>
 
             {/* Top Row: Balance & Quick Actions */}

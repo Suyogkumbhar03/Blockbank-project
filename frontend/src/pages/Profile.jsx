@@ -13,6 +13,96 @@ function Profile() {
   const [isSaving, setIsSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
 
+  // Update Password Modal States
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [passwordStep, setPasswordStep] = useState(1) // 1: Old Password, 2: New Password & Confirm
+  const [oldPassword, setOldPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccessMsg, setPasswordSuccessMsg] = useState('')
+  const [isVerifyingPassword, setIsVerifyingPassword] = useState(false)
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false)
+
+  const handleOpenPasswordModal = () => {
+    setShowPasswordModal(true)
+    setPasswordStep(1)
+    setOldPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setPasswordError('')
+  }
+
+  const handleClosePasswordModal = () => {
+    if (!isVerifyingPassword && !isUpdatingPassword) {
+      setShowPasswordModal(false)
+      setPasswordStep(1)
+      setOldPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setPasswordError('')
+    }
+  }
+
+  const handleVerifyOldPassword = async (e) => {
+    if (e) e.preventDefault()
+    if (!oldPassword) {
+      setPasswordError('Please enter your current password')
+      return
+    }
+
+    setIsVerifyingPassword(true)
+    setPasswordError('')
+
+    try {
+      const res = await api.post('/verify-old-password', { oldPassword })
+      if (res.data && res.data.valid) {
+        setPasswordStep(2)
+        setPasswordError('')
+      } else {
+        setPasswordError(res.data?.message || 'Incorrect current password')
+      }
+    } catch (err) {
+      setPasswordError(err.response?.data?.message || 'Incorrect current password')
+    } finally {
+      setIsVerifyingPassword(false)
+    }
+  }
+
+  const handleUpdatePassword = async (e) => {
+    if (e) e.preventDefault()
+    if (!newPassword || !confirmPassword) {
+      setPasswordError('Please fill in both new password fields')
+      return
+    }
+    if (newPassword.length < 6) {
+      setPasswordError('New password must be at least 6 characters long')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('New passwords do not match')
+      return
+    }
+
+    setIsUpdatingPassword(true)
+    setPasswordError('')
+
+    try {
+      const res = await api.put('/update-password', {
+        oldPassword,
+        newPassword,
+        confirmPassword,
+      })
+      handleClosePasswordModal()
+      setPasswordSuccessMsg(res.data?.message || 'Password changed successfully!')
+      setTimeout(() => setPasswordSuccessMsg(''), 4000)
+    } catch (err) {
+      setPasswordError(err.response?.data?.message || 'Failed to update password. Please try again.')
+    } finally {
+      setIsUpdatingPassword(false)
+    }
+  }
+
   // Profile Form States
   const [user, setUser] = useState({
     name: 'Alex Thorne',
@@ -231,6 +321,14 @@ function Profile() {
               </button>
             </div>
 
+            {/* Password Success Toast */}
+            {passwordSuccessMsg && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-fadeIn shadow-sm">
+                <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+                <span className="font-semibold">{passwordSuccessMsg}</span>
+              </div>
+            )}
+
             {/* Success Toast */}
             {savedSuccess && (
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded text-sm flex items-center gap-2 animate-fadeIn">
@@ -311,7 +409,10 @@ function Profile() {
 
                   <div className="flex flex-col gap-sm">
                     {/* Item 1: Update Password */}
-                    <div className="border border-outline-variant/60 rounded-md p-md flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group">
+                    <div
+                      onClick={handleOpenPasswordModal}
+                      className="border border-outline-variant/60 rounded-md p-md flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group"
+                    >
                       <div className="flex items-center gap-md">
                         <div className="w-9 h-9 rounded bg-surface-container flex items-center justify-center text-on-surface">
                           <span className="material-symbols-outlined text-[20px]">lock</span>
@@ -456,6 +557,284 @@ function Profile() {
           </div>
         </main>
       </div>
+
+      {/* Update Password Modal */}
+      {showPasswordModal && (
+        <div
+          id="update-password-modal"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Backdrop */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)',
+            }}
+            onClick={handleClosePasswordModal}
+          />
+
+          {/* Modal Card */}
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 10,
+              background: '#fff',
+              borderRadius: '20px',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              width: '100%',
+              maxWidth: '440px',
+              padding: '32px 28px',
+              display: 'flex',
+              flexDirection: 'column',
+              margin: '0 16px',
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 44, height: 44, borderRadius: 14, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="material-symbols-outlined" style={{ color: '#fff', fontSize: 22 }}>lock</span>
+                </div>
+                <div>
+                  <h3 style={{ fontSize: 18, fontWeight: 800, color: '#111', margin: 0, lineHeight: 1.3 }}>Update Password</h3>
+                  <p style={{ fontSize: 12, color: '#6b7280', margin: '2px 0 0' }}>
+                    Step {passwordStep} of 2 — {passwordStep === 1 ? 'Verify Current Password' : 'Create New Password'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleClosePasswordModal}
+                disabled={isVerifyingPassword || isUpdatingPassword}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: 4 }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>close</span>
+              </button>
+            </div>
+
+            {/* Step Progress indicator */}
+            <div style={{ width: '100%', height: 4, background: '#f3f4f6', borderRadius: 2, marginBottom: 20, overflow: 'hidden' }}>
+              <div style={{ width: passwordStep === 1 ? '50%' : '100%', height: '100%', background: '#0f172a', transition: 'width 0.3s' }} />
+            </div>
+
+            {/* Error Notice */}
+            {passwordError && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', padding: '10px 14px', borderRadius: 12, fontSize: 13, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#ef4444' }}>error</span>
+                <span>{passwordError}</span>
+              </div>
+            )}
+
+            {passwordStep === 1 ? (
+              /* Step 1 Form */
+              <form onSubmit={handleVerifyOldPassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                    Current Password
+                  </label>
+                  <input
+                    type="password"
+                    autoFocus
+                    placeholder="Enter current password"
+                    value={oldPassword}
+                    onChange={(e) => {
+                      setOldPassword(e.target.value)
+                      if (passwordError) setPasswordError('')
+                    }}
+                    style={{
+                      width: '100%',
+                      background: '#f9fafb',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 12,
+                      padding: '12px 14px',
+                      fontSize: 14,
+                      fontFamily: 'monospace',
+                      color: '#111827',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={handleClosePasswordModal}
+                    disabled={isVerifyingPassword}
+                    style={{
+                      flex: 1,
+                      border: '2px solid #e5e7eb',
+                      background: '#fff',
+                      color: '#374151',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      padding: '12px 0',
+                      borderRadius: 12,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={!oldPassword || isVerifyingPassword}
+                    style={{
+                      flex: 1,
+                      background: oldPassword && !isVerifyingPassword ? '#111' : '#9ca3af',
+                      color: '#fff',
+                      fontSize: 14,
+                      fontWeight: 700,
+                      padding: '12px 0',
+                      borderRadius: 12,
+                      cursor: oldPassword && !isVerifyingPassword ? 'pointer' : 'not-allowed',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6
+                    }}
+                  >
+                    {isVerifyingPassword ? 'Verifying...' : 'Next Step'}
+                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_forward</span>
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* Step 2 Form */
+              <form onSubmit={handleUpdatePassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    autoFocus
+                    placeholder="Enter new password (min. 6 chars)"
+                    value={newPassword}
+                    onChange={(e) => {
+                      setNewPassword(e.target.value)
+                      if (passwordError) setPasswordError('')
+                    }}
+                    style={{
+                      width: '100%',
+                      background: '#f9fafb',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 12,
+                      padding: '12px 14px',
+                      fontSize: 14,
+                      fontFamily: 'monospace',
+                      color: '#111827',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Re-enter new password"
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value)
+                      if (passwordError) setPasswordError('')
+                    }}
+                    style={{
+                      width: '100%',
+                      background: '#f9fafb',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 12,
+                      padding: '12px 14px',
+                      fontSize: 14,
+                      fontFamily: 'monospace',
+                      color: '#111827',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => { setPasswordStep(1); setPasswordError(''); }}
+                    disabled={isUpdatingPassword}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#6b7280',
+                      fontWeight: 600,
+                      fontSize: 13,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_back</span>
+                    Back
+                  </button>
+
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={handleClosePasswordModal}
+                      disabled={isUpdatingPassword}
+                      style={{
+                        border: '2px solid #e5e7eb',
+                        background: '#fff',
+                        color: '#374151',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        padding: '10px 16px',
+                        borderRadius: 12,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!newPassword || !confirmPassword || isUpdatingPassword}
+                      style={{
+                        background: newPassword && confirmPassword && !isUpdatingPassword ? '#111' : '#9ca3af',
+                        color: '#fff',
+                        fontSize: 13,
+                        fontWeight: 700,
+                        padding: '10px 20px',
+                        borderRadius: 12,
+                        border: 'none',
+                        cursor: newPassword && confirmPassword && !isUpdatingPassword ? 'pointer' : 'not-allowed',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6
+                      }}
+                    >
+                      <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check</span>
+                      {isUpdatingPassword ? 'Updating...' : 'Change Password'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
