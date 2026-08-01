@@ -89,7 +89,21 @@ const loginUser = async (req, res) => {
 
         // Track login history for admin accounts (keep last 3, newest first)
         if (user.role === 'admin') {
-            user.loginHistory = [new Date(), ...(user.loginHistory || [])].slice(0, 3);
+            let capturedIP = 'Unknown';
+            try {
+                if (req.ip) {
+                    capturedIP = req.ip;
+                } else if (req.headers && req.headers['x-forwarded-for']) {
+                    const rawHeader = req.headers['x-forwarded-for'];
+                    capturedIP = Array.isArray(rawHeader) ? rawHeader[0] : String(rawHeader).split(',')[0].trim();
+                }
+            } catch (ipError) {
+                capturedIP = 'Unknown';
+            }
+            if (!capturedIP) capturedIP = 'Unknown';
+
+            const newEntry = { timestamp: new Date(), ip: String(capturedIP) };
+            user.loginHistory = [newEntry, ...(user.loginHistory || [])].slice(0, 3);
             user.markModified('loginHistory');
             await user.save({ validateModifiedOnly: true });
         }
@@ -147,14 +161,10 @@ const updateUserProfile = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const { name, phone, dateOfBirth } = req.body;
+        const { name, phone } = req.body;
 
         if (name !== undefined) user.name = name.trim();
         if (phone !== undefined) user.phone = phone.trim();
-        if (dateOfBirth !== undefined) {
-            const dob = new Date(dateOfBirth);
-            if (!isNaN(dob.getTime())) user.dateOfBirth = dob;
-        }
 
         await user.save({ validateModifiedOnly: true });
 

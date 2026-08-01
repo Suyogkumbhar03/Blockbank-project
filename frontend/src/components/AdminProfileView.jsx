@@ -352,11 +352,9 @@ function AdminProfileView() {
                 <input
                   type="text"
                   name="dateOfBirth"
-                  disabled={!isEditing}
+                  disabled={true}
                   value={adminData.dateOfBirth || 'May 12, 1985'}
-                  onChange={handleChange}
-                  className={`input-field w-full h-11 px-3.5 rounded font-sans text-sm ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                    }`}
+                  className="input-field w-full h-11 px-3.5 rounded font-sans text-sm bg-surface-container-low text-on-surface cursor-not-allowed opacity-80"
                 />
               </div>
             </form>
@@ -386,41 +384,47 @@ function AdminProfileView() {
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {loginHistory.map((ts, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-3 bg-surface-container-low border border-outline-variant/50 rounded-lg px-4 py-3"
-                  >
-                    {/* Icon */}
-                    <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${idx === 0 ? 'bg-emerald-100' : 'bg-surface-container'}`}>
-                      <span className={`material-symbols-outlined text-[18px] ${idx === 0 ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
-                        {idx === 0 ? 'verified_user' : 'history'}
+                {loginHistory.map((item, idx) => {
+                  const ts = typeof item === 'object' && item !== null && item.timestamp ? item.timestamp : item;
+                  const ip = typeof item === 'object' && item !== null && item.ip ? item.ip : 'Unknown';
+                  return (
+                    <div
+                      key={idx}
+                      className="flex items-center gap-3 bg-surface-container-low border border-outline-variant/50 rounded-lg px-4 py-3"
+                    >
+                      {/* Icon */}
+                      <div className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${idx === 0 ? 'bg-emerald-100' : 'bg-surface-container'}`}>
+                        <span className={`material-symbols-outlined text-[18px] ${idx === 0 ? 'text-emerald-600' : 'text-on-surface-variant'}`}>
+                          {idx === 0 ? 'verified_user' : 'history'}
+                        </span>
+                      </div>
+
+                      {/* Details */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-on-surface">
+                            {formatDate(ts)} • {formatTime(ts)}
+                          </span>
+                          {idx === 0 && (
+                            <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
+                              Most Recent
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-on-surface-variant mt-0.5 flex items-center gap-2">
+                          <span>{idx === 0 ? 'Current session login' : `Previous session #${idx + 1}`}</span>
+                          <span>•</span>
+                          <span className="font-mono text-[11px]">IP: {ip}</span>
+                        </div>
+                      </div>
+
+                      {/* Session number badge */}
+                      <span className="text-[11px] font-mono text-on-surface-variant opacity-50 shrink-0">
+                        #{idx + 1}
                       </span>
                     </div>
-
-                    {/* Details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm text-on-surface">
-                          {formatDate(ts)} • {formatTime(ts)}
-                        </span>
-                        {idx === 0 && (
-                          <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-200">
-                            Most Recent
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-on-surface-variant mt-0.5">
-                        {idx === 0 ? 'Current session login' : `Previous session #${idx + 1}`}
-                      </div>
-                    </div>
-
-                    {/* Session number badge */}
-                    <span className="text-[11px] font-mono text-on-surface-variant opacity-50 shrink-0">
-                      #{idx + 1}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

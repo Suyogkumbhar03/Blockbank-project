@@ -2,6 +2,63 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const bcrypt = require('bcrypt');
 
+// Helper for PIN verification and attempt/lockout tracking
+const verifyAndTrackPin = async (user, pin) => {
+    // 1. Check if currently locked out
+    if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
+        const remainingMs = user.pinLockedUntil - new Date();
+        const remainingMins = Math.ceil(remainingMs / 60000);
+        return {
+            success: false,
+            status: 429,
+            locked: true,
+            message: `Too many incorrect attempts. Transfers locked for ${remainingMins} minute${remainingMins !== 1 ? 's' : ''}.`
+        };
+    }
+
+    const stringPin = pin !== undefined && pin !== null ? String(pin).trim() : '';
+    if (!stringPin || !user.transactionPin) {
+        return handleWrongPin(user);
+    }
+
+    const isMatch = await bcrypt.compare(stringPin, user.transactionPin);
+    if (!isMatch) {
+        return handleWrongPin(user);
+    }
+
+    // Correct PIN — reset counters
+    user.pinAttempts = 0;
+    user.pinLockedUntil = null;
+    await user.save({ validateModifiedOnly: true });
+
+    return { success: true };
+};
+
+const handleWrongPin = async (user) => {
+    user.pinAttempts = (user.pinAttempts || 0) + 1;
+
+    if (user.pinAttempts >= 3) {
+        // Lock for 30 minutes
+        user.pinLockedUntil = new Date(Date.now() + 30 * 60 * 1000);
+        user.pinAttempts = 0;
+        await user.save({ validateModifiedOnly: true });
+        return {
+            success: false,
+            status: 429,
+            locked: true,
+            message: 'Too many incorrect attempts. Transfers are locked for 30 minutes.'
+        };
+    }
+
+    const attemptsLeft = 3 - user.pinAttempts;
+    await user.save({ validateModifiedOnly: true });
+    return {
+        success: false,
+        status: 400,
+        message: `Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft !== 1 ? 's' : ''} remaining.`
+    };
+};
+
 // TASK 7: Verify PIN endpoint controller (with lockout after 3 wrong attempts)
 const verifyPin = async (req, res) => {
     try {
@@ -11,51 +68,14 @@ const verifyPin = async (req, res) => {
             return res.status(404).json({ valid: false, message: 'User not found' });
         }
 
-        // Check if currently locked out
-        if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
-            const remainingMs = user.pinLockedUntil - new Date();
-            const remainingMins = Math.ceil(remainingMs / 60000);
-            return res.status(429).json({
+        const pinResult = await verifyAndTrackPin(user, pin);
+        if (!pinResult.success) {
+            return res.status(pinResult.status).json({
                 valid: false,
-                locked: true,
-                message: `Too many incorrect attempts. Transfers locked for ${remainingMins} minute${remainingMins !== 1 ? 's' : ''}.`
+                locked: pinResult.locked,
+                message: pinResult.message
             });
         }
-
-        const stringPin = pin !== undefined && pin !== null ? String(pin).trim() : '';
-        if (!stringPin || !user.transactionPin) {
-            return res.status(400).json({ valid: false, message: 'Incorrect PIN' });
-        }
-
-        const isMatch = await bcrypt.compare(stringPin, user.transactionPin);
-        if (!isMatch) {
-            // Increment failed attempts
-            user.pinAttempts = (user.pinAttempts || 0) + 1;
-
-            if (user.pinAttempts >= 3) {
-                // Lock for 30 minutes
-                user.pinLockedUntil = new Date(Date.now() + 30 * 60 * 1000);
-                user.pinAttempts = 0;
-                await user.save({ validateModifiedOnly: true });
-                return res.status(429).json({
-                    valid: false,
-                    locked: true,
-                    message: 'Too many incorrect attempts. Transfers are locked for 30 minutes.'
-                });
-            }
-
-            const attemptsLeft = 3 - user.pinAttempts;
-            await user.save({ validateModifiedOnly: true });
-            return res.status(400).json({
-                valid: false,
-                message: `Incorrect PIN. ${attemptsLeft} attempt${attemptsLeft !== 1 ? 's' : ''} remaining.`
-            });
-        }
-
-        // Correct PIN — reset counters
-        user.pinAttempts = 0;
-        user.pinLockedUntil = null;
-        await user.save({ validateModifiedOnly: true });
 
         return res.status(200).json({ valid: true });
     } catch (error) {
@@ -103,14 +123,13 @@ const transferMoney = async (req, res) => {
             return res.status(400).json({ message: 'Sender account is not active or approved' });
         }
 
-        // 1b. Verify Transaction PIN (Defense in Depth)
-        const stringPin = pin !== undefined && pin !== null ? String(pin).trim() : '';
-        if (!stringPin || !sender.transactionPin) {
-            return res.status(400).json({ message: 'Incorrect PIN' });
-        }
-        const isPinValid = await bcrypt.compare(stringPin, sender.transactionPin);
-        if (!isPinValid) {
-            return res.status(400).json({ message: 'Incorrect PIN' });
+        // 1b. Verify Transaction PIN & enforce Lockout
+        const pinResult = await verifyAndTrackPin(sender, pin);
+        if (!pinResult.success) {
+            return res.status(pinResult.status).json({
+                message: pinResult.message,
+                locked: pinResult.locked
+            });
         }
 
         // 2. Look up receiver by receiverPaymentId

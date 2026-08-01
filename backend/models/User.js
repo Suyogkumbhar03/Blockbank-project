@@ -11,8 +11,10 @@ const userSchema = new mongoose.Schema({
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     accountNumber: { type: String, unique: true, sparse: true },
     paymentId: { type: String, unique: true, sparse: true },
-    balance: { type: Number, default: 0 },
-    loginHistory: { type: [Date], default: [] },
+    loginHistory: [{
+        timestamp: { type: Date, required: true },
+        ip: { type: String, default: 'Unknown' }
+    }],
     pinAttempts: { type: Number, default: 0 },
     pinLockedUntil: { type: Date, default: null }
 }, { timestamps: true });

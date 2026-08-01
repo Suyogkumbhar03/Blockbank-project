@@ -128,7 +128,6 @@ function Profile() {
       const payload = {
         name: formData.name,
         phone: formData.phone,
-        dateOfBirth: formData.dateOfBirth,
       }
       const res = await api.put('/profile', payload)
       const dobStr = res.data.dateOfBirth
@@ -415,7 +414,7 @@ function Profile() {
                       />
                     </div>
 
-                    {/* Date of Birth */}
+                    {/* Date of Birth (Read-only after registration) */}
                     <div className="flex flex-col gap-xs mt-2">
                       <label className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider">
                         Date of Birth
@@ -424,11 +423,9 @@ function Profile() {
                         <input
                           type="date"
                           name="dateOfBirth"
-                          disabled={!isEditing}
+                          disabled={true}
                           value={formData.dateOfBirth}
-                          onChange={handleChange}
-                          className={`input-field w-full h-10 px-3 rounded font-mono text-sm pr-8 ${!isEditing ? 'bg-surface-container-low text-on-surface cursor-default' : ''
-                            }`}
+                          className="input-field w-full h-10 px-3 rounded font-mono text-sm pr-8 bg-surface-container-low text-on-surface cursor-not-allowed opacity-80"
                         />
                       </div>
                     </div>
