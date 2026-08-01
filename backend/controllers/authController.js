@@ -100,7 +100,9 @@ const loginUser = async (req, res) => {
             } catch (ipError) {
                 capturedIP = 'Unknown';
             }
-            if (!capturedIP) capturedIP = 'Unknown';
+            if (!capturedIP || capturedIP === '::1' || capturedIP === '::ffff:127.0.0.1') {
+                capturedIP = '127.0.0.1';
+            }
 
             const newEntry = { timestamp: new Date(), ip: String(capturedIP) };
 
