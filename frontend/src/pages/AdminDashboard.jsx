@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar'
 import AdminProfileView from '../components/AdminProfileView'
 import AdminTransactionsView from '../components/AdminTransactionsView'
 import TransactionVolumeChart from '../components/TransactionVolumeChart'
+import { generateReport } from '../utils/generateReport.jsx'
 
 function AdminDashboard() {
   const [activeTab, setActiveTabState] = useState(() => {
@@ -19,6 +20,8 @@ function AdminDashboard() {
   const [approvedUsers, setApprovedUsers] = useState([])
   const [loading, setLoading] = useState(false)
   const [adminName, setAdminName] = useState('Admin')
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
+  const [reportError, setReportError] = useState('')
 
   useEffect(() => {
     const loadAdminName = () => {
@@ -94,6 +97,36 @@ function AdminDashboard() {
     }
   }
 
+  const handleGenerateReport = async () => {
+    try {
+      setIsGeneratingReport(true)
+      setReportError('')
+
+      // Fetch all transactions from the backend endpoint GET /api/admin/all-transactions
+      const txRes = await api.get('/admin/all-transactions')
+      const allTransactions = Array.isArray(txRes.data) ? txRes.data : []
+
+      // Generate the PDF report using html2canvas + jsPDF template
+      await generateReport({
+        adminName,
+        approvedUsers,
+        pendingUsers,
+        rejectedUsers: 0,
+        totalUsers: approvedUsers.length + pendingUsers.length,
+        allTransactions
+      })
+    } catch (error) {
+      console.error('Failed to generate system report', error)
+      setReportError(
+        error.response?.data?.message ||
+        error.message ||
+        'Failed to generate system report. Please try again.'
+      )
+    } finally {
+      setIsGeneratingReport(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-surface-container-lowest font-sans text-on-surface flex">
       {/* Shared Admin Sidebar */}
@@ -146,9 +179,28 @@ function AdminDashboard() {
                     Real-time overview of network health and security protocols.
                   </p>
                 </div>
-                <button className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-md text-sm font-medium hover:bg-surface-container-low transition-colors shadow-sm cursor-pointer">
-                  Generate Report
-                </button>
+                <div className="flex flex-col items-end gap-1">
+                  <button
+                    onClick={handleGenerateReport}
+                    disabled={isGeneratingReport}
+                    className="px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-md text-sm font-medium hover:bg-surface-container-low transition-colors shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isGeneratingReport ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <span>Generating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                        <span>Generate Report</span>
+                      </>
+                    )}
+                  </button>
+                  {reportError && (
+                    <span className="text-xs text-error font-medium">{reportError}</span>
+                  )}
+                </div>
               </div>
 
               {/* KPI Cards */}

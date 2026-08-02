@@ -8,6 +8,7 @@ router.put('/profile', verifyToken, isAdmin, updateAdminProfile);
 router.get('/pending-users', verifyToken, isAdmin, getPendingUsers);
 router.get('/approved-users', verifyToken, isAdmin, getApprovedUsers);
 router.get('/transactions', verifyToken, isAdmin, getAllTransactions);
+router.get('/all-transactions', verifyToken, isAdmin, getAllTransactions);
 router.put('/approve/:id', verifyToken, isAdmin, approveUser);
 router.put('/reject/:id', verifyToken, isAdmin, rejectUser);
 
