@@ -166,6 +166,7 @@ const getUserProfile = async (req, res) => {
             accountNumber: user.accountNumber,
             paymentId: user.paymentId,
             balance: user.balance !== undefined ? user.balance : 1000,
+            isFrozen: user.isFrozen || false,
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });

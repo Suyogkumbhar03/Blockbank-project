@@ -100,6 +100,35 @@ function AdminDashboard() {
     }
   }
 
+  const handleToggleFreeze = async (user) => {
+    const actionName = user.isFrozen ? 'unfreeze' : 'freeze'
+    if (!window.confirm(`Are you sure you want to ${actionName} account for "${user.name}"?`)) {
+      return
+    }
+    try {
+      const res = await api.put(`/admin/freeze/${user._id || user.id}`)
+      await fetchUsers()
+      alert(res.data?.message || `User ${actionName}d successfully`)
+    } catch (error) {
+      console.error(`Failed to ${actionName} user`, error)
+      alert(error.response?.data?.message || `Failed to ${actionName} user`)
+    }
+  }
+
+  const handleDeleteUser = async (user) => {
+    if (!window.confirm(`Are you sure you want to permanently delete account for "${user.name}"? This action cannot be undone and will remove the account from the database.`)) {
+      return
+    }
+    try {
+      const res = await api.delete(`/admin/users/${user._id || user.id}`)
+      await fetchUsers()
+      alert(res.data?.message || 'User deleted permanently from database')
+    } catch (error) {
+      console.error('Failed to delete user', error)
+      alert(error.response?.data?.message || 'Failed to delete user')
+    }
+  }
+
   const handleGenerateReport = async () => {
     try {
       setIsGeneratingReport(true)
@@ -304,7 +333,10 @@ function AdminDashboard() {
                       </div>
                       <span className="font-medium text-sm text-on-surface">Approve Users</span>
                     </button>
-                    <button className="flex items-center gap-4 p-4 border border-outline-variant rounded-lg hover:bg-[#fff5f5] hover:border-error transition-all group text-left cursor-pointer">
+                    <button
+                      onClick={() => setActiveTab('freeze-accounts')}
+                      className="flex items-center gap-4 p-4 border border-outline-variant rounded-lg hover:bg-[#fff5f5] hover:border-error transition-all group text-left cursor-pointer"
+                    >
                       <div className="w-10 h-10 rounded bg-[#fee2e2] text-error flex items-center justify-center group-hover:bg-error group-hover:text-white transition-colors">
                         <span className="material-symbols-outlined text-[20px]">ac_unit</span>
                       </div>
@@ -329,7 +361,7 @@ function AdminDashboard() {
                   <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
                     Accounts
                   </h1>
-                  <p className="text-on-surface-variant">List of all active and approved users.</p>
+                  <p className="text-on-surface-variant">List of all active and approved user accounts.</p>
                 </div>
               </div>
 
@@ -340,8 +372,9 @@ function AdminDashboard() {
                       <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
                       <th className="py-4 px-6 font-semibold text-sm text-on-surface">Email</th>
                       <th className="py-4 px-6 font-semibold text-sm text-on-surface">Account No</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Payment ID</th>
                       <th className="py-4 px-6 font-semibold text-sm text-on-surface">Balance</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Role</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -356,19 +389,124 @@ function AdminDashboard() {
                           <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
                             {user.accountNumber || 'N/A'}
                           </td>
+                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                            {user.paymentId || 'N/A'}
+                          </td>
                           <td className="py-4 px-6 text-sm font-medium text-primary font-mono">
                             ₹{(user.balance || 0).toLocaleString()}
                           </td>
                           <td className="py-4 px-6 text-sm">
-                            <span className="px-2 py-1 bg-surface-container-high rounded text-xs font-semibold uppercase">
-                              {user.role}
-                            </span>
+                            {user.isFrozen ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full text-xs font-semibold uppercase">
+                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                                Frozen
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold uppercase">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Active
+                              </span>
+                            )}
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5" className="py-8 text-center text-on-surface-variant text-sm">
+                        <td colSpan="6" className="py-8 text-center text-on-surface-variant text-sm">
+                          No approved accounts found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'freeze-accounts' && (
+            <div className="max-w-6xl mx-auto">
+              <div className="flex justify-between items-end mb-8">
+                <div>
+                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
+                    Freeze Accounts
+                  </h1>
+                  <p className="text-on-surface-variant">
+                    Manage account statuses, freeze transaction access, or delete accounts permanently.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-surface-container border-b border-outline-variant">
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Email</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Account No</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Payment ID</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Balance</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Status</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {approvedUsers.length > 0 ? (
+                      approvedUsers.map((user) => (
+                        <tr
+                          key={user._id || user.id}
+                          className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                        >
+                          <td className="py-4 px-6 text-sm font-medium">{user.name}</td>
+                          <td className="py-4 px-6 text-sm text-on-surface-variant">{user.email}</td>
+                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                            {user.accountNumber || 'N/A'}
+                          </td>
+                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                            {user.paymentId || 'N/A'}
+                          </td>
+                          <td className="py-4 px-6 text-sm font-medium text-primary font-mono">
+                            ₹{(user.balance || 0).toLocaleString()}
+                          </td>
+                          <td className="py-4 px-6 text-sm">
+                            {user.isFrozen ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full text-xs font-semibold uppercase">
+                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                                Frozen
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold uppercase">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                Active
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 px-6 text-sm text-right space-x-2 whitespace-nowrap">
+                            <button
+                              onClick={() => handleToggleFreeze(user)}
+                              className={`px-3 py-1.5 rounded text-xs font-semibold border transition-colors cursor-pointer inline-flex items-center gap-1 ${
+                                user.isFrozen
+                                  ? 'bg-primary text-on-primary border-primary hover:bg-primary/90'
+                                  : 'bg-surface-container-high text-on-surface border-outline-variant hover:bg-surface-container'
+                              }`}
+                            >
+                              <span className="material-symbols-outlined text-[14px]">
+                                {user.isFrozen ? 'lock_open' : 'ac_unit'}
+                              </span>
+                              {user.isFrozen ? 'Unfreeze' : 'Freeze'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(user)}
+                              className="px-3 py-1.5 bg-error text-white rounded text-xs font-semibold hover:bg-error/90 transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">delete</span>
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="7" className="py-8 text-center text-on-surface-variant text-sm">
                           No approved accounts found.
                         </td>
                       </tr>

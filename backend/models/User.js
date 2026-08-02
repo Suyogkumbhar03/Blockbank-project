@@ -17,7 +17,8 @@ const userSchema = new mongoose.Schema({
         ip: { type: String, default: 'Unknown' }
     }],
     pinAttempts: { type: Number, default: 0 },
-    pinLockedUntil: { type: Date, default: null }
+    pinLockedUntil: { type: Date, default: null },
+    isFrozen: { type: Boolean, default: false }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

@@ -8,6 +8,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab }) {
     const adminNavItems = [
       { id: 'dashboard', label: 'Dashboard', icon: 'grid_view' },
       { id: 'accounts', label: 'Accounts', icon: 'account_balance' },
+      { id: 'freeze-accounts', label: 'Freeze Accounts', icon: 'ac_unit' },
       { id: 'approve-users', label: 'Approve Users', icon: 'person_check' },
       { id: 'rejected-users', label: 'Rejected Users', icon: 'person_cancel' },
       { id: 'transactions', label: 'Transactions', icon: 'receipt_long' },

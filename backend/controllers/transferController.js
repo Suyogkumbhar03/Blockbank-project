@@ -101,6 +101,13 @@ const verifyPaymentId = async (req, res) => {
             });
         }
 
+        if (user.isFrozen) {
+            return res.status(200).json({
+                found: false,
+                message: 'This recipient account is currently frozen'
+            });
+        }
+
         // Return only name and paymentId for privacy
         return res.status(200).json({
             found: true,
@@ -123,6 +130,10 @@ const transferMoney = async (req, res) => {
             return res.status(400).json({ message: 'Sender account is not active or approved' });
         }
 
+        if (sender.isFrozen) {
+            return res.status(400).json({ message: 'Your account is frozen. You cannot perform transactions.' });
+        }
+
         // 1b. Verify Transaction PIN & enforce Lockout
         const pinResult = await verifyAndTrackPin(sender, pin);
         if (!pinResult.success) {
@@ -140,6 +151,10 @@ const transferMoney = async (req, res) => {
         const receiver = await User.findOne({ paymentId: receiverPaymentId.trim() });
         if (!receiver || receiver.status !== 'approved') {
             return res.status(404).json({ message: 'No active account found with this Payment ID' });
+        }
+
+        if (receiver.isFrozen) {
+            return res.status(400).json({ message: 'Recipient account is frozen and cannot receive funds.' });
         }
 
         // 3. Prevent self-transfer

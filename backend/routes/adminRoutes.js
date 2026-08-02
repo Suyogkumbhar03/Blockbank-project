@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getPendingUsers, getApprovedUsers, getRejectedUsers, approveUser, rejectUser, getAdminProfile, updateAdminProfile, getAllTransactions } = require('../controllers/adminController');
+const { getPendingUsers, getApprovedUsers, getRejectedUsers, approveUser, rejectUser, getAdminProfile, updateAdminProfile, getAllTransactions, toggleFreezeUser, deleteUser } = require('../controllers/adminController');
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
 router.get('/profile', verifyToken, isAdmin, getAdminProfile);
@@ -12,6 +12,8 @@ router.get('/transactions', verifyToken, isAdmin, getAllTransactions);
 router.get('/all-transactions', verifyToken, isAdmin, getAllTransactions);
 router.put('/approve/:id', verifyToken, isAdmin, approveUser);
 router.put('/reject/:id', verifyToken, isAdmin, rejectUser);
+router.put('/freeze/:id', verifyToken, isAdmin, toggleFreezeUser);
+router.delete('/users/:id', verifyToken, isAdmin, deleteUser);
 
 module.exports = router;
 
