@@ -539,18 +539,27 @@ function Profile() {
                     <span className="text-[11px] font-semibold text-on-surface-variant uppercase tracking-wider block mb-1">
                       Unique Payment ID
                     </span>
-                    <span className="font-mono font-bold text-sm text-on-surface">
+                    <span className="font-mono font-bold text-sm text-on-surface flex items-center gap-1">
                       {user.paymentId}
+                      <button
+                        type="button"
+                        onClick={handleCopyPaymentId}
+                        title={copied ? "Copied!" : "Copy Payment ID"}
+                        className="ml-0.5 p-0.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high rounded cursor-pointer inline-flex items-center justify-center transition-colors active:scale-90"
+                      >
+                        {copied ? (
+                          <svg className="w-2.5 h-2.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        ) : (
+                          <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                          </svg>
+                        )}
+                      </button>
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyPaymentId}
-                    className="bg-surface-container-lowest border border-outline-variant rounded px-3 py-1.5 text-xs font-medium text-on-surface hover:bg-surface-container transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">content_copy</span>
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
                 </div>
               </div>
             </div>
