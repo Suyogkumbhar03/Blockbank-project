@@ -18,6 +18,7 @@ function AdminDashboard() {
   const [chartRange, setChartRange] = useState('1D')
   const [pendingUsers, setPendingUsers] = useState([])
   const [approvedUsers, setApprovedUsers] = useState([])
+  const [rejectedUsers, setRejectedUsers] = useState([])
   const [loading, setLoading] = useState(false)
   const [adminName, setAdminName] = useState('Admin')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
@@ -51,12 +52,14 @@ function AdminDashboard() {
   const fetchUsers = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true)
-      const [pendingRes, approvedRes] = await Promise.all([
+      const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
         api.get('/admin/pending-users'),
         api.get('/admin/approved-users'),
+        api.get('/admin/rejected-users'),
       ])
       setPendingUsers(pendingRes.data || [])
       setApprovedUsers(approvedRes.data || [])
+      setRejectedUsers(rejectedRes.data || [])
     } catch (error) {
       console.error('Failed to fetch users', error)
     } finally {
@@ -111,8 +114,8 @@ function AdminDashboard() {
         adminName,
         approvedUsers,
         pendingUsers,
-        rejectedUsers: 0,
-        totalUsers: approvedUsers.length + pendingUsers.length,
+        rejectedUsers,
+        totalUsers: approvedUsers.length + pendingUsers.length + rejectedUsers.length,
         allTransactions
       })
     } catch (error) {
@@ -443,6 +446,65 @@ function AdminDashboard() {
           )}
 
           {activeTab === 'transactions' && <AdminTransactionsView />}
+
+          {activeTab === 'rejected-users' && (
+            <div className="max-w-6xl mx-auto">
+              <div className="flex justify-between items-end mb-8">
+                <div>
+                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
+                    Rejected Users
+                  </h1>
+                  <p className="text-on-surface-variant">
+                    Read-only list of users whose registrations were rejected.
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-surface-container border-b border-outline-variant">
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Email</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Phone</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Payment ID</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rejectedUsers.length > 0 ? (
+                      rejectedUsers.map((user) => (
+                        <tr
+                          key={user._id || user.id}
+                          className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                        >
+                          <td className="py-4 px-6 text-sm font-medium">{user.name}</td>
+                          <td className="py-4 px-6 text-sm text-on-surface-variant">{user.email}</td>
+                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                            {user.phone || 'N/A'}
+                          </td>
+                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                            {user.paymentId || '—'}
+                          </td>
+                          <td className="py-4 px-6 text-sm">
+                            <span className="px-2 py-1 bg-[#fff5f5] text-error border border-[#fecaca] rounded text-xs font-semibold uppercase">
+                              Rejected
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="5" className="py-8 text-center text-on-surface-variant text-sm">
+                          No rejected users found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {(activeTab === 'explorer' || activeTab === 'fraud') && (
             <div className="flex items-center justify-center h-64">

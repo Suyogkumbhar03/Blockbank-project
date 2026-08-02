@@ -28,6 +28,15 @@ const getApprovedUsers = async (req, res) => {
     }
 };
 
+const getRejectedUsers = async (req, res) => {
+    try {
+        const rejectedUsers = await User.find({ status: 'rejected' }).select('-password');
+        res.status(200).json(rejectedUsers);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
 const approveUser = async (req, res) => {
     try {
         const { id } = req.params;
@@ -148,6 +157,7 @@ const getAllTransactions = async (req, res) => {
 module.exports = {
     getPendingUsers,
     getApprovedUsers,
+    getRejectedUsers,
     approveUser,
     rejectUser,
     getAdminProfile,
