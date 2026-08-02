@@ -6,8 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 // Plays once per browser session. Subsequent internal navigations skip it.
 function IntroSplash({ onDone }) {
   useEffect(() => {
-    // logo fades in (600ms) + brief hold (250ms) + exit handled by AnimatePresence (400ms) = ~1.25s
-    const t = setTimeout(onDone, 950)
+    // Shows splash for 2.6 seconds before starting exit fade out
+    const t = setTimeout(onDone, 2600)
     return () => clearTimeout(t)
   }, [onDone])
 
@@ -18,18 +18,22 @@ function IntroSplash({ onDone }) {
       initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.4, ease: 'easeInOut' }}
+      transition={{ duration: 0.5, ease: 'easeInOut' }}
     >
       <motion.div
         className="flex flex-col items-center gap-sm"
-        initial={{ opacity: 0, scale: 0.9, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: -8 }}
-        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0, scale: 0.82, y: 5 }}
+        animate={{ opacity: 1, scale: 1.05, y: 0 }}
+        exit={{ opacity: 0, scale: 1.15, y: -5 }}
+        transition={{
+          opacity: { duration: 0.8, ease: 'easeOut' },
+          scale: { duration: 2.6, ease: 'easeOut' },
+          y: { duration: 0.8, ease: 'easeOut' }
+        }}
       >
         <span
           className="material-symbols-outlined text-primary"
-          style={{ fontSize: '52px', fontVariationSettings: "'FILL' 1" }}
+          style={{ fontSize: '56px', fontVariationSettings: "'FILL' 1" }}
         >
           account_balance
         </span>
