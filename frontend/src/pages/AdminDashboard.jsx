@@ -343,12 +343,6 @@ function AdminDashboard() {
                       </div>
                       <span className="font-medium text-sm text-on-surface">Freeze Accounts</span>
                     </button>
-                    <button className="flex items-center gap-4 p-4 border border-outline-variant rounded-lg hover:bg-surface-container-lowest hover:border-primary transition-all group text-left cursor-pointer">
-                      <div className="w-10 h-10 rounded bg-surface-container text-on-surface-variant flex items-center justify-center group-hover:bg-surface-container-high transition-colors">
-                        <span className="material-symbols-outlined text-[20px]">terminal</span>
-                      </div>
-                      <span className="font-medium text-sm text-on-surface">System Logs</span>
-                    </button>
                   </div>
                 </div>
               </div>

@@ -424,22 +424,6 @@ function Profile() {
                         chevron_right
                       </span>
                     </div>
-
-                    {/* Item 2: Active Sessions */}
-                    <div className="border border-outline-variant/60 rounded-md p-md flex items-center justify-between hover:bg-surface-container-low transition-colors cursor-pointer group">
-                      <div className="flex items-center gap-md">
-                        <div className="w-9 h-9 rounded bg-surface-container flex items-center justify-center text-on-surface">
-                          <span className="material-symbols-outlined text-[20px]">devices</span>
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold text-on-surface">Active Sessions</div>
-                          <div className="text-xs text-on-surface-variant">2 devices currently connected</div>
-                        </div>
-                      </div>
-                      <span className="material-symbols-outlined text-outline group-hover:text-on-surface transition-colors">
-                        chevron_right
-                      </span>
-                    </div>
                   </div>
                 </div>
               </div>
