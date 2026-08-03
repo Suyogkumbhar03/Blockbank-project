@@ -1,19 +1,38 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const bcrypt = require('bcrypt');
+const Notification = require('../models/Notification');
 
 // Helper for PIN verification and attempt/lockout tracking
 const verifyAndTrackPin = async (user, pin) => {
     // 1. Check if currently locked out
-    if (user.pinLockedUntil && user.pinLockedUntil > new Date()) {
-        const remainingMs = user.pinLockedUntil - new Date();
-        const remainingMins = Math.ceil(remainingMs / 60000);
-        return {
-            success: false,
-            status: 429,
-            locked: true,
-            message: `Too many incorrect attempts. Transfers locked for ${remainingMins} minute${remainingMins !== 1 ? 's' : ''}.`
-        };
+    if (user.pinLockedUntil) {
+        if (user.pinLockedUntil > new Date()) {
+            const remainingMs = user.pinLockedUntil - new Date();
+            const remainingMins = Math.ceil(remainingMs / 60000);
+            return {
+                success: false,
+                status: 429,
+                locked: true,
+                message: `Too many incorrect attempts. Transfers locked for ${remainingMins} minute${remainingMins !== 1 ? 's' : ''}.`
+            };
+        } else {
+            // Lock has expired!
+            user.pinAttempts = 0;
+            user.pinLockedUntil = null;
+            await user.save({ validateModifiedOnly: true });
+
+            try {
+                const notification = new Notification({
+                    userId: user._id,
+                    message: "Your account is unlocked. You can now proceed with payments.",
+                    type: 'pin_unlocked'
+                });
+                await notification.save();
+            } catch (notifErr) {
+                console.error('Failed to create PIN unlocked notification:', notifErr);
+            }
+        }
     }
 
     const stringPin = pin !== undefined && pin !== null ? String(pin).trim() : '';
@@ -200,6 +219,18 @@ const transferMoney = async (req, res) => {
         });
 
         await transaction.save();
+
+        // Trigger receiver notification
+        try {
+            const notification = new Notification({
+                userId: receiver._id,
+                message: `You received ₹${numericAmount} from ${sender.name}`,
+                type: 'money_received'
+            });
+            await notification.save();
+        } catch (notifErr) {
+            console.error('Failed to create transfer notification for receiver:', notifErr);
+        }
 
         return res.status(200).json({
             message: 'Transfer successful',

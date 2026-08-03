@@ -82,6 +82,10 @@ const loginUser = async (req, res) => {
             return res.status(403).json({ message: 'Account not yet approved by admin' });
         }
 
+        if (user.isFrozen) {
+            return res.status(403).json({ message: 'Your account has been frozen by BlockBank admin. Contact support.' });
+        }
+
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Invalid email or password' });

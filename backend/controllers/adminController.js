@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
+const Notification = require('../models/Notification');
 
 const generateAccountNumber = () => {
     return 'BB' + Math.floor(1000000000 + Math.random() * 9000000000);
@@ -57,6 +58,18 @@ const approveUser = async (req, res) => {
         user.status = 'approved';
 
         await user.save();
+
+        // Trigger notification
+        try {
+            const notification = new Notification({
+                userId: user._id,
+                message: "Welcome to BlockBank! Your account has been approved.",
+                type: 'account_approved'
+            });
+            await notification.save();
+        } catch (notifErr) {
+            console.error('Failed to create approval notification:', notifErr);
+        }
 
         res.status(200).json({
             message: 'User approved successfully',
@@ -169,6 +182,19 @@ const toggleFreezeUser = async (req, res) => {
         user.isFrozen = !user.isFrozen;
         await user.save();
 
+        if (user.isFrozen) {
+            try {
+                const notification = new Notification({
+                    userId: user._id,
+                    message: "Your account has been frozen by BlockBank admin. Contact support.",
+                    type: 'account_frozen'
+                });
+                await notification.save();
+            } catch (notifErr) {
+                console.error('Failed to create freeze notification:', notifErr);
+            }
+        }
+
         res.status(200).json({
             message: user.isFrozen ? 'User account frozen successfully' : 'User account unfrozen successfully',
             isFrozen: user.isFrozen,
@@ -178,6 +204,75 @@ const toggleFreezeUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 isFrozen: user.isFrozen
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+const freezeUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (user.role === 'admin') {
+            return res.status(403).json({ message: 'Cannot freeze admin account' });
+        }
+
+        user.isFrozen = true;
+        await user.save();
+
+        try {
+            const notification = new Notification({
+                userId: user._id,
+                message: "Your account has been frozen by BlockBank admin. Contact support.",
+                type: 'account_frozen'
+            });
+            await notification.save();
+        } catch (notifErr) {
+            console.error('Failed to create freeze notification:', notifErr);
+        }
+
+        res.status(200).json({
+            message: 'User account frozen successfully',
+            isFrozen: true,
+            user: {
+                id: user._id,
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                isFrozen: true
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+const unfreezeUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findById(id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        user.isFrozen = false;
+        await user.save();
+
+        res.status(200).json({
+            message: 'User account unfrozen successfully',
+            isFrozen: false,
+            user: {
+                id: user._id,
+                _id: user._id,
+                name: user.name,
+                email: user.email,
+                isFrozen: false
             }
         });
     } catch (error) {
@@ -215,5 +310,7 @@ module.exports = {
     updateAdminProfile,
     getAllTransactions,
     toggleFreezeUser,
+    freezeUser,
+    unfreezeUser,
     deleteUser
 };

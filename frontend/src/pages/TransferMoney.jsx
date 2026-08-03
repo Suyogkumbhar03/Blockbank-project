@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import Sidebar from '../components/Sidebar'
 import UserProfileButton from '../components/UserProfileButton'
+import NotificationBell from '../components/NotificationBell'
 import api from '../services/api'
 
 export default function TransferMoney() {
@@ -232,9 +233,7 @@ export default function TransferMoney() {
         <header className="bg-surface border-b border-outline-variant h-16 fixed top-0 right-0 left-64 z-40 flex justify-between items-center px-lg">
           <div className="flex items-center"></div>
           <div className="flex items-center gap-md">
-            <button className="text-on-surface-variant hover:text-on-surface transition-colors w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
+            <NotificationBell />
             <div className="h-6 w-px bg-outline-variant mx-xs" />
             <UserProfileButton user={user} />
           </div>

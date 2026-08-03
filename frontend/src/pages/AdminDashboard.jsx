@@ -106,7 +106,8 @@ function AdminDashboard() {
       return
     }
     try {
-      const res = await api.put(`/admin/freeze/${user._id || user.id}`)
+      const endpoint = user.isFrozen ? `/admin/unfreeze/${user._id || user.id}` : `/admin/freeze/${user._id || user.id}`
+      const res = await api.put(endpoint)
       await fetchUsers()
       alert(res.data?.message || `User ${actionName}d successfully`)
     } catch (error) {

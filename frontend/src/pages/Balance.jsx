@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import UserProfileButton from '../components/UserProfileButton'
+import NotificationBell from '../components/NotificationBell'
 import api from '../services/api'
 
 export default function Balance() {
@@ -124,10 +125,7 @@ export default function Balance() {
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <button className="p-2 text-on-surface-variant hover:text-on-surface transition-colors rounded-full hover:bg-surface-container relative">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
-            </button>
+            <NotificationBell />
             <div className="h-6 w-px bg-outline-variant mx-2"></div>
             <UserProfileButton user={user} />
           </div>
