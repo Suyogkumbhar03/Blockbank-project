@@ -141,9 +141,326 @@ function FAQItem({ question, answer, isOpen, onToggle }) {
   )
 }
 
+// Helper Component: Feedback Form Modal
+function FeedbackModal({ isOpen, onClose }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    category: 'General',
+    rating: '5',
+    message: ''
+  })
+  const [submitted, setSubmitted] = useState(false)
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setSubmitted(true)
+    setTimeout(() => {
+      setSubmitted(false)
+      setFormData({ name: '', email: '', category: 'General', rating: '5', message: '' })
+      onClose()
+    }, 2000)
+  }
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative z-10 w-[520px] max-w-[92vw] bg-surface-container-lowest border border-surface-variant rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden"
+          >
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-surface-variant">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">rate_review</span>
+                <h3 className="text-xl font-bold text-on-surface">Share Your Feedback</h3>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded-full hover:bg-surface-container"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {submitted ? (
+              <div className="py-8 text-center flex flex-col items-center gap-3">
+                <span className="material-symbols-outlined text-4xl text-emerald-600">check_circle</span>
+                <h4 className="text-lg font-bold text-on-surface">Thank You!</h4>
+                <p className="text-sm text-on-surface-variant">Your feedback has been recorded successfully.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter your name"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary"
+                    >
+                      <option value="General">General Feedback</option>
+                      <option value="Bug Report">Bug Report</option>
+                      <option value="Feature Request">Feature Request</option>
+                      <option value="UX">User Experience</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                      Rating
+                    </label>
+                    <select
+                      value={formData.rating}
+                      onChange={(e) => setFormData({ ...formData, rating: e.target.value })}
+                      className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary"
+                    >
+                      <option value="5">⭐⭐⭐⭐⭐ (5/5)</option>
+                      <option value="4">⭐⭐⭐⭐ (4/5)</option>
+                      <option value="3">⭐⭐⭐ (3/5)</option>
+                      <option value="2">⭐⭐ (2/5)</option>
+                      <option value="1">⭐ (1/5)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                    Feedback Details
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Tell us what you think or how we can improve..."
+                    value={formData.message}
+                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-primary text-on-primary text-sm font-medium rounded hover:opacity-90 transition-opacity"
+                  >
+                    Submit Feedback
+                  </button>
+                </div>
+              </form>
+            )}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  )
+}
+
+// Helper Component: Contact Us Form Modal
+function ContactUsModal({ isOpen, onClose }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    subject: '',
+    message: ''
+  })
+  const [submitted, setSubmitted] = useState(false)
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setSubmitted(true)
+    setTimeout(() => {
+      setSubmitted(false)
+      setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
+      onClose()
+    }, 2000)
+  }
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative z-10 w-[520px] max-w-[92vw] bg-surface-container-lowest border border-surface-variant rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden"
+          >
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-surface-variant">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">support_agent</span>
+                <h3 className="text-xl font-bold text-on-surface">Contact Support</h3>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded-full hover:bg-surface-container"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {submitted ? (
+              <div className="py-8 text-center flex flex-col items-center gap-3">
+                <span className="material-symbols-outlined text-4xl text-emerald-600">mark_email_read</span>
+                <h4 className="text-lg font-bold text-on-surface">Message Sent!</h4>
+                <p className="text-sm text-on-surface-variant">Our support team will get back to you shortly.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                      Full Name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Your full name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="+91 98765 43210"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="name@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                    Subject
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="How can we help?"
+                    value={formData.subject}
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wider mb-1">
+                    Message
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Write your query or message here..."
+                    value={formData.message}
+                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                    className="w-full px-3 py-2 bg-surface-container-low border border-surface-variant rounded text-sm text-on-surface focus:outline-none focus:border-primary resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2 text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2 bg-primary text-on-primary text-sm font-medium rounded hover:opacity-90 transition-opacity"
+                  >
+                    Send Message
+                  </button>
+                </div>
+              </form>
+            )}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 function Landing() {
   const [scrolled, setScrolled] = useState(false)
   const [openFaqIndex, setOpenFaqIndex] = useState(null)
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
+  const [isContactOpen, setIsContactOpen] = useState(false)
 
   useEffect(() => {
     document.documentElement.classList.add('scroll-smooth');
@@ -219,6 +536,10 @@ function Landing() {
   return (
     <div className="font-sans antialiased text-on-surface bg-surface-container-lowest relative min-h-screen">
       <div className="fixed inset-0 grid-pattern pointer-events-none z-[-1]"></div>
+
+      {/* Modals */}
+      <FeedbackModal isOpen={isFeedbackOpen} onClose={() => setIsFeedbackOpen(false)} />
+      <ContactUsModal isOpen={isContactOpen} onClose={() => setIsContactOpen(false)} />
 
       {/* Navigation */}
       <nav className={`fixed top-0 left-0 right-0 h-16 z-50 glass-panel border-b border-surface-variant flex items-center justify-between px-margin-mobile md:px-margin-desktop transition-all duration-300 ${scrolled ? 'premium-shadow' : ''}`} id="main-nav">
@@ -647,7 +968,24 @@ function Landing() {
               </h3>
 
               <ul className="space-y-3 text-sm">
-                <li><a href="#" className="hover:text-primary">Help Center</a></li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setIsFeedbackOpen(true)}
+                    className="hover:text-primary text-left cursor-pointer transition-colors"
+                  >
+                    Feedback
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setIsContactOpen(true)}
+                    className="hover:text-primary text-left cursor-pointer transition-colors"
+                  >
+                    Contact Us
+                  </button>
+                </li>
                 <li><a href="#" className="hover:text-primary">Report Fraud</a></li>
                 <li><a href="#" className="hover:text-primary">Security</a></li>
                 <li><a href="#" className="hover:text-primary">Privacy Policy</a></li>
