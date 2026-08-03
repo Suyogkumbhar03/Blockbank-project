@@ -6,7 +6,6 @@ function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const [isPendingAccount, setIsPendingAccount] = useState(false)
@@ -137,22 +136,6 @@ function Login() {
           </div>
 
           {/* Options Row */}
-          <div className="flex items-center justify-between w-full mt-xs">
-            <label className="flex items-center gap-2 cursor-pointer group select-none">
-              <div className="relative flex items-center justify-center">
-                <input 
-                  className="peer appearance-none w-4 h-4 border border-outline-variant rounded-sm bg-surface-container-lowest checked:bg-primary checked:border-primary transition-colors cursor-pointer focus:ring-2 focus:ring-primary/20 focus:ring-offset-0" 
-                  id="remember" 
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                />
-                <span className="material-symbols-outlined absolute text-[14px] text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" style={{ fontVariationSettings: "'FILL' 1" }}>check</span>
-              </div>
-              <span className="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Trust this device</span>
-            </label>
-          </div>
-
           {/* Actions */}
           <div className="flex flex-col gap-sm w-full mt-sm">
             <button className="btn-primary w-full h-10 rounded flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-wider cursor-pointer" type="submit">
@@ -170,7 +153,7 @@ function Login() {
         {/* Footer Info */}
         <div className="w-full flex items-center justify-center gap-2 mt-xl pt-lg border-t border-outline-variant/30">
           <span className="material-symbols-outlined text-outline text-[16px]">gpp_good</span>
-          <p className="font-mono text-[11px] text-outline text-center">Protected by End-to-End Encryption • v2.4.1</p>
+          <p className="font-mono text-[11px] text-outline text-center">Protected by End-to-End Encryption</p>
         </div>
       </main>
 
