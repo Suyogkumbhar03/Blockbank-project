@@ -80,8 +80,12 @@ function NotificationBell() {
         return 'verified_user';
       case 'pin_unlocked':
         return 'lock_open';
+      case 'account_unfrozen':
+        return 'lock_open';
       case 'account_frozen':
         return 'gpp_bad';
+      case 'user_registered':
+        return 'person_add';
       default:
         return 'notifications';
     }
@@ -117,7 +121,7 @@ function NotificationBell() {
             <div className="p-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low shrink-0">
               <span className="font-semibold text-sm text-on-surface">Notifications</span>
               {unreadCount > 0 && (
-                <span className="text-[11px] font-medium text-error-container bg-error/10 px-2 py-0.5 rounded-full border border-error/20">
+                <span className="text-[11px] font-bold text-red-800 bg-red-100 px-2.5 py-0.5 rounded-full border border-red-300">
                   {unreadCount} new
                 </span>
               )}
@@ -135,8 +139,8 @@ function NotificationBell() {
                     >
                       <div
                         className={`p-2 rounded-full flex items-center justify-center shrink-0 ${!n.read
-                            ? 'bg-secondary-container text-on-secondary-container'
-                            : 'bg-surface-container text-on-surface-variant'
+                          ? 'bg-secondary-container text-on-secondary-container'
+                          : 'bg-surface-container text-on-surface-variant'
                           }`}
                       >
                         <span className="material-symbols-outlined text-[18px]">

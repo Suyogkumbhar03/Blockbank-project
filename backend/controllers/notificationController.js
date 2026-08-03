@@ -2,9 +2,33 @@ const Notification = require('../models/Notification');
 
 const getNotifications = async (req, res) => {
     try {
+        if (req.user && req.user.role === 'admin') {
+            try {
+                const User = require('../models/User');
+                const pendingUsers = await User.find({ status: 'pending' });
+                for (const pUser of pendingUsers) {
+                    const exists = await Notification.findOne({
+                        userId: req.user.id,
+                        type: 'user_registered',
+                        message: { $regex: pUser.email, $options: 'i' }
+                    });
+                    if (!exists) {
+                        const notif = new Notification({
+                            userId: req.user.id,
+                            message: `New user registration request: "${pUser.name}" (${pUser.email}) is pending admin approval.`,
+                            type: 'user_registered'
+                        });
+                        await notif.save();
+                    }
+                }
+            } catch (syncErr) {
+                console.error('Failed to sync pending registration notifications for admin:', syncErr);
+            }
+        }
+
         const notifications = await Notification.find({ userId: req.user.id })
             .sort({ timestamp: -1 })
-            .limit(20);
+            .limit(30);
         res.status(200).json(notifications);
     } catch (error) {
         res.status(500).json({ message: 'Server error fetching notifications', error: error.message });

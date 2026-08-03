@@ -60,6 +60,22 @@ const registerUser = async (req, res) => {
 
         await newUser.save();
 
+        // Save admin notification for new user registration request
+        try {
+            const Notification = require('../models/Notification');
+            const admins = await User.find({ role: 'admin' });
+            for (const admin of admins) {
+                const notification = new Notification({
+                    userId: admin._id,
+                    message: `New user registration request: "${newUser.name}" (${newUser.email}) is pending admin approval.`,
+                    type: 'user_registered'
+                });
+                await notification.save();
+            }
+        } catch (notifErr) {
+            console.error('Failed to save admin registration notification in DB:', notifErr);
+        }
+
         res.status(201).json({
             message: 'Registration successful. Your account is pending admin approval.',
             userId: newUser._id
@@ -171,6 +187,8 @@ const getUserProfile = async (req, res) => {
             paymentId: user.paymentId,
             balance: user.balance !== undefined ? user.balance : 1000,
             isFrozen: user.isFrozen || false,
+            frozenAt: user.frozenAt || null,
+            unfrozenAt: user.unfrozenAt || null,
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });

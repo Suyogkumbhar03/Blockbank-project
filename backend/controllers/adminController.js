@@ -180,19 +180,24 @@ const toggleFreezeUser = async (req, res) => {
         }
 
         user.isFrozen = !user.isFrozen;
+        if (user.isFrozen) {
+            user.frozenAt = new Date();
+        } else {
+            user.unfrozenAt = new Date();
+        }
         await user.save();
 
-        if (user.isFrozen) {
-            try {
-                const notification = new Notification({
-                    userId: user._id,
-                    message: "Your account has been frozen by BlockBank admin. Contact support.",
-                    type: 'account_frozen'
-                });
-                await notification.save();
-            } catch (notifErr) {
-                console.error('Failed to create freeze notification:', notifErr);
-            }
+        try {
+            const notification = new Notification({
+                userId: user._id,
+                message: user.isFrozen
+                    ? "Your account has been frozen by BlockBank admin. Contact support."
+                    : "Your account has been unfrozen by BlockBank admin. You can now perform transactions.",
+                type: user.isFrozen ? 'account_frozen' : 'account_unfrozen'
+            });
+            await notification.save();
+        } catch (notifErr) {
+            console.error('Failed to create/emit freeze status notification:', notifErr);
         }
 
         res.status(200).json({
@@ -224,6 +229,7 @@ const freezeUser = async (req, res) => {
         }
 
         user.isFrozen = true;
+        user.frozenAt = new Date();
         await user.save();
 
         try {
@@ -262,7 +268,19 @@ const unfreezeUser = async (req, res) => {
         }
 
         user.isFrozen = false;
+        user.unfrozenAt = new Date();
         await user.save();
+
+        try {
+            const notification = new Notification({
+                userId: user._id,
+                message: "Your account has been unfrozen by BlockBank admin. You can now perform transactions.",
+                type: 'account_unfrozen'
+            });
+            await notification.save();
+        } catch (notifErr) {
+            console.error('Failed to create unfreeze notification:', notifErr);
+        }
 
         res.status(200).json({
             message: 'User account unfrozen successfully',

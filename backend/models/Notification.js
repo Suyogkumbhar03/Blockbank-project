@@ -5,7 +5,7 @@ const notificationSchema = new mongoose.Schema({
     message: { type: String, required: true },
     type: {
         type: String,
-        enum: ['money_received', 'account_approved', 'pin_unlocked', 'account_frozen'],
+        enum: ['money_received', 'account_approved', 'pin_unlocked', 'account_frozen', 'account_unfrozen', 'user_registered'],
         required: true
     },
     read: { type: Boolean, default: false },

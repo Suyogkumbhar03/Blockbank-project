@@ -343,6 +343,24 @@ function Profile() {
               </div>
             )}
 
+            {/* Account Status / Unfreeze Notification Banner */}
+            {!user.isFrozen && user.unfrozenAt && (
+              <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-5 py-3.5 rounded-xl text-sm flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+                    <span className="material-symbols-outlined text-[20px]">lock_open</span>
+                  </div>
+                  <div>
+                    <span className="font-bold text-emerald-950 block">Account Unfrozen & Active</span>
+                    <span className="text-xs text-emerald-700">Your account was unfrozen by BlockBank admin. Full transaction capabilities are enabled.</span>
+                  </div>
+                </div>
+                <span className="text-[11px] font-semibold bg-emerald-200/60 text-emerald-900 px-3 py-1 rounded-full border border-emerald-300">
+                  Active
+                </span>
+              </div>
+            )}
+
             {/* Content Grid */}
             <div className="grid grid-cols-12 gap-gutter">
               {/* Left Column - Profile Card & Account Security */}

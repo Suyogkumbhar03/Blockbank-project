@@ -4,6 +4,7 @@ import Sidebar from '../components/Sidebar'
 import AdminProfileView from '../components/AdminProfileView'
 import AdminTransactionsView from '../components/AdminTransactionsView'
 import TransactionVolumeChart from '../components/TransactionVolumeChart'
+import NotificationBell from '../components/NotificationBell'
 import { generateReport } from '../utils/generateReport.jsx'
 
 function AdminDashboard() {
@@ -180,9 +181,7 @@ function AdminDashboard() {
             />
           </div>
           <div className="flex items-center gap-6">
-            <button className="text-on-surface-variant hover:text-on-surface transition-colors">
-              <span className="material-symbols-outlined text-[22px]">notifications</span>
-            </button>
+            <NotificationBell />
             <div className="h-6 w-px bg-surface-variant"></div>
             <button
               type="button"

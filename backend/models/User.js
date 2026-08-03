@@ -18,7 +18,9 @@ const userSchema = new mongoose.Schema({
     }],
     pinAttempts: { type: Number, default: 0 },
     pinLockedUntil: { type: Date, default: null },
-    isFrozen: { type: Boolean, default: false }
+    isFrozen: { type: Boolean, default: false },
+    frozenAt: { type: Date, default: null },
+    unfrozenAt: { type: Date, default: null }
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
