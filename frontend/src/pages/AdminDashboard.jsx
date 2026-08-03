@@ -40,7 +40,7 @@ function AdminDashboard() {
     }
 
     loadAdminName()
-    
+
     window.addEventListener('profileUpdated', loadAdminName)
     window.addEventListener('storage', loadAdminName)
     return () => {
@@ -484,11 +484,10 @@ function AdminDashboard() {
                           <td className="py-4 px-6 text-sm text-right space-x-2 whitespace-nowrap">
                             <button
                               onClick={() => handleToggleFreeze(user)}
-                              className={`px-3 py-1.5 rounded text-xs font-semibold border transition-colors cursor-pointer inline-flex items-center gap-1 ${
-                                user.isFrozen
+                              className={`px-3 py-1.5 rounded text-xs font-semibold border transition-colors cursor-pointer inline-flex items-center gap-1 ${user.isFrozen
                                   ? 'bg-primary text-on-primary border-primary hover:bg-primary/90'
                                   : 'bg-surface-container-high text-on-surface border-outline-variant hover:bg-surface-container'
-                              }`}
+                                }`}
                             >
                               <span className="material-symbols-outlined text-[14px]">
                                 {user.isFrozen ? 'lock_open' : 'ac_unit'}

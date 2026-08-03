@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const containerRef = useRef(null);
 
   const fetchNotifications = async () => {
@@ -33,6 +34,13 @@ function NotificationBell() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Reset showAll when dropdown closes
+  useEffect(() => {
+    if (!isOpen) {
+      setShowAll(false);
+    }
+  }, [isOpen]);
+
   const handleMarkAsRead = async (id, alreadyRead) => {
     if (alreadyRead) return;
     try {
@@ -52,7 +60,7 @@ function NotificationBell() {
     const then = new Date(timestamp);
     const diffMs = now - then;
     if (diffMs < 0) return 'Just now';
-    
+
     const diffSecs = Math.floor(diffMs / 1000);
     const diffMins = Math.floor(diffSecs / 60);
     const diffHours = Math.floor(diffMins / 60);
@@ -80,6 +88,7 @@ function NotificationBell() {
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const displayedNotifications = showAll ? notifications : notifications.slice(0, 5);
 
   return (
     <div className="relative inline-block" ref={containerRef}>
@@ -115,39 +124,47 @@ function NotificationBell() {
             </div>
 
             <div className="overflow-y-auto flex-1 divide-y divide-outline-variant/40">
-              {notifications.length > 0 ? (
-                notifications.map((n) => (
-                  <button
-                    key={n._id}
-                    onClick={() => handleMarkAsRead(n._id, n.read)}
-                    className={`w-full text-left p-4 hover:bg-surface-container transition-colors flex gap-3 items-start cursor-pointer focus:outline-none ${
-                      !n.read ? 'bg-surface-container-low/50' : 'bg-transparent'
-                    }`}
-                  >
-                    <div
-                      className={`p-2 rounded-full flex items-center justify-center shrink-0 ${
-                        !n.read
-                          ? 'bg-secondary-container text-on-secondary-container'
-                          : 'bg-surface-container text-on-surface-variant'
-                      }`}
+              {displayedNotifications.length > 0 ? (
+                <>
+                  {displayedNotifications.map((n) => (
+                    <button
+                      key={n._id}
+                      onClick={() => handleMarkAsRead(n._id, n.read)}
+                      className={`w-full text-left p-4 hover:bg-surface-container transition-colors flex gap-3 items-start cursor-pointer focus:outline-none ${!n.read ? 'bg-surface-container-low/50' : 'bg-transparent'
+                        }`}
                     >
-                      <span className="material-symbols-outlined text-[18px]">
-                        {getNotificationIcon(n.type)}
-                      </span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs leading-normal break-words ${!n.read ? 'font-semibold text-on-surface' : 'text-on-surface-variant'}`}>
-                        {n.message}
-                      </p>
-                      <span className="text-[10px] text-outline mt-1 block">
-                        {formatRelativeTime(n.timestamp)}
-                      </span>
-                    </div>
-                    {!n.read && (
-                      <span className="w-2 h-2 rounded-full bg-error shrink-0 mt-1.5" />
-                    )}
-                  </button>
-                ))
+                      <div
+                        className={`p-2 rounded-full flex items-center justify-center shrink-0 ${!n.read
+                            ? 'bg-secondary-container text-on-secondary-container'
+                            : 'bg-surface-container text-on-surface-variant'
+                          }`}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          {getNotificationIcon(n.type)}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-xs leading-normal break-words ${!n.read ? 'font-semibold text-on-surface' : 'text-on-surface-variant'}`}>
+                          {n.message}
+                        </p>
+                        <span className="text-[10px] text-outline mt-1 block">
+                          {formatRelativeTime(n.timestamp)}
+                        </span>
+                      </div>
+                      {!n.read && (
+                        <span className="w-2 h-2 rounded-full bg-error shrink-0 mt-1.5" />
+                      )}
+                    </button>
+                  ))}
+                  {notifications.length > 5 && !showAll && (
+                    <button
+                      onClick={() => setShowAll(true)}
+                      className="w-full text-center py-3 bg-surface-container-low hover:bg-surface-container text-xs font-semibold text-on-surface hover:text-primary transition-colors cursor-pointer border-t border-outline-variant/40"
+                    >
+                      View More
+                    </button>
+                  )}
+                </>
               ) : (
                 <div className="p-8 text-center text-on-surface-variant text-xs flex flex-col items-center gap-2">
                   <span className="material-symbols-outlined text-[32px] text-outline">notifications_off</span>
