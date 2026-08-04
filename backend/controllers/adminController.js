@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Notification = require('../models/Notification');
+const { addBlock } = require('./blockchainController');
 
 const generateAccountNumber = () => {
     return 'BB' + Math.floor(1000000000 + Math.random() * 9000000000);
@@ -59,6 +60,14 @@ const approveUser = async (req, res) => {
 
         await user.save();
 
+        // Audit block log
+        const adminId = (req.user && (req.user.id || req.user._id)) ? (req.user.id || req.user._id) : user._id;
+        try {
+            await addBlock('approve', `Approved user ${user.name} (${user.email})`, adminId, user._id);
+        } catch (blockErr) {
+            console.error('Failed to log audit block for user approval:', blockErr);
+        }
+
         // Trigger notification
         try {
             const notification = new Notification({
@@ -102,6 +111,14 @@ const rejectUser = async (req, res) => {
         user.status = 'rejected';
         await user.save();
 
+        // Audit block log
+        const adminId = (req.user && (req.user.id || req.user._id)) ? (req.user.id || req.user._id) : user._id;
+        try {
+            await addBlock('reject', `Rejected user ${user.name} (${user.email})`, adminId, user._id);
+        } catch (blockErr) {
+            console.error('Failed to log audit block for user rejection:', blockErr);
+        }
+
         res.status(200).json({ message: 'User rejected' });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });
@@ -110,7 +127,8 @@ const rejectUser = async (req, res) => {
 
 const getAdminProfile = async (req, res) => {
     try {
-        const admin = await User.findById(req.user.id).select('-password -transactionPin');
+        const adminId = req.user.id || req.user._id;
+        const admin = await User.findById(adminId).select('-password -transactionPin');
         if (!admin || admin.role !== 'admin') {
             return res.status(403).json({ message: 'Access denied' });
         }
@@ -129,7 +147,8 @@ const getAdminProfile = async (req, res) => {
 
 const updateAdminProfile = async (req, res) => {
     try {
-        const admin = await User.findById(req.user.id);
+        const adminId = req.user.id || req.user._id;
+        const admin = await User.findById(adminId);
         if (!admin || admin.role !== 'admin') {
             return res.status(403).json({ message: 'Access denied' });
         }
@@ -187,6 +206,19 @@ const toggleFreezeUser = async (req, res) => {
         }
         await user.save();
 
+        const actionType = user.isFrozen ? 'freeze' : 'unfreeze';
+        const actionMsg = user.isFrozen
+            ? `Froze user ${user.name} (${user.email})`
+            : `Unfroze user ${user.name} (${user.email})`;
+
+        // Audit block log
+        const adminId = (req.user && (req.user.id || req.user._id)) ? (req.user.id || req.user._id) : user._id;
+        try {
+            await addBlock(actionType, actionMsg, adminId, user._id);
+        } catch (blockErr) {
+            console.error(`Failed to log audit block for ${actionType}:`, blockErr);
+        }
+
         try {
             const notification = new Notification({
                 userId: user._id,
@@ -232,6 +264,14 @@ const freezeUser = async (req, res) => {
         user.frozenAt = new Date();
         await user.save();
 
+        // Audit block log
+        const adminId = (req.user && (req.user.id || req.user._id)) ? (req.user.id || req.user._id) : user._id;
+        try {
+            await addBlock('freeze', `Froze user ${user.name} (${user.email})`, adminId, user._id);
+        } catch (blockErr) {
+            console.error('Failed to log audit block for freeze:', blockErr);
+        }
+
         try {
             const notification = new Notification({
                 userId: user._id,
@@ -270,6 +310,14 @@ const unfreezeUser = async (req, res) => {
         user.isFrozen = false;
         user.unfrozenAt = new Date();
         await user.save();
+
+        // Audit block log
+        const adminId = (req.user && (req.user.id || req.user._id)) ? (req.user.id || req.user._id) : user._id;
+        try {
+            await addBlock('unfreeze', `Unfroze user ${user.name} (${user.email})`, adminId, user._id);
+        } catch (blockErr) {
+            console.error('Failed to log audit block for unfreeze:', blockErr);
+        }
 
         try {
             const notification = new Notification({

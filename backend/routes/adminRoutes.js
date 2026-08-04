@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getPendingUsers, getApprovedUsers, getRejectedUsers, approveUser, rejectUser, getAdminProfile, updateAdminProfile, getAllTransactions, toggleFreezeUser, freezeUser, unfreezeUser, deleteUser } = require('../controllers/adminController');
+const { getChain, validateChain, getFraudAlerts } = require('../controllers/blockchainController');
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
 router.get('/profile', verifyToken, isAdmin, getAdminProfile);
@@ -16,5 +17,9 @@ router.put('/freeze/:id', verifyToken, isAdmin, freezeUser);
 router.put('/unfreeze/:id', verifyToken, isAdmin, unfreezeUser);
 router.delete('/users/:id', verifyToken, isAdmin, deleteUser);
 
-module.exports = router;
+// Blockchain audit routes
+router.get('/blockchain/chain', verifyToken, isAdmin, getChain);
+router.get('/blockchain/validate', verifyToken, isAdmin, validateChain);
+router.get('/blockchain/fraud-alerts', verifyToken, isAdmin, getFraudAlerts);
 
+module.exports = router;

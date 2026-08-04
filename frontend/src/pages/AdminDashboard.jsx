@@ -16,7 +16,6 @@ function AdminDashboard() {
     setActiveTabState(tab)
     localStorage.setItem('adminActiveTab', tab)
   }
-  const [chartRange, setChartRange] = useState('1D')
   const [pendingUsers, setPendingUsers] = useState([])
   const [approvedUsers, setApprovedUsers] = useState([])
   const [rejectedUsers, setRejectedUsers] = useState([])
@@ -24,6 +23,12 @@ function AdminDashboard() {
   const [adminName, setAdminName] = useState('Admin')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [reportError, setReportError] = useState('')
+
+  // Blockchain audit ledger state
+  const [chain, setChain] = useState([])
+  const [validationResult, setValidationResult] = useState({ valid: true })
+  const [fraudAlerts, setFraudAlerts] = useState([])
+  const [isValidating, setIsValidating] = useState(false)
 
   useEffect(() => {
     const loadAdminName = () => {
@@ -68,10 +73,46 @@ function AdminDashboard() {
     }
   }, [])
 
+  const fetchBlockchainData = useCallback(async () => {
+    try {
+      setIsValidating(true)
+      const [chainRes, validateRes] = await Promise.all([
+        api.get('/admin/blockchain/chain'),
+        api.get('/admin/blockchain/validate'),
+      ])
+      setChain(chainRes.data || [])
+      setValidationResult(validateRes.data || { valid: true })
+    } catch (error) {
+      console.error('Failed to fetch blockchain data', error)
+    } finally {
+      setIsValidating(false)
+    }
+  }, [])
+
+  const fetchFraudAlerts = useCallback(async () => {
+    try {
+      const alertsRes = await api.get('/admin/blockchain/fraud-alerts')
+      setFraudAlerts(alertsRes.data || [])
+    } catch (error) {
+      console.error('Failed to fetch fraud alerts', error)
+    }
+  }, [])
+
   // Initial fetch + re-fetch when tab changes
   useEffect(() => {
     fetchUsers()
-  }, [fetchUsers, activeTab])
+    fetchBlockchainData()
+    fetchFraudAlerts()
+  }, [fetchUsers, fetchBlockchainData, fetchFraudAlerts, activeTab])
+
+  // Specific triggers for explorer and fraud tabs
+  useEffect(() => {
+    if (activeTab === 'explorer') {
+      fetchBlockchainData()
+    } else if (activeTab === 'fraud') {
+      fetchFraudAlerts()
+    }
+  }, [activeTab, fetchBlockchainData, fetchFraudAlerts])
 
   // Poll every 5 seconds silently to pick up changes from other browsers/sessions
   useEffect(() => {
@@ -85,6 +126,7 @@ function AdminDashboard() {
     try {
       await api.put(`/admin/approve/${id}`, { initialBalance: 100 })
       await fetchUsers()
+      await fetchBlockchainData()
       alert('User approved successfully')
     } catch (error) {
       console.error('Failed to approve user', error)
@@ -95,6 +137,7 @@ function AdminDashboard() {
     try {
       await api.put(`/admin/reject/${id}`)
       await fetchUsers()
+      await fetchBlockchainData()
       alert('User rejected')
     } catch (error) {
       console.error('Failed to reject user', error)
@@ -110,6 +153,7 @@ function AdminDashboard() {
       const endpoint = user.isFrozen ? `/admin/unfreeze/${user._id || user.id}` : `/admin/freeze/${user._id || user.id}`
       const res = await api.put(endpoint)
       await fetchUsers()
+      await fetchBlockchainData()
       alert(res.data?.message || `User ${actionName}d successfully`)
     } catch (error) {
       console.error(`Failed to ${actionName} user`, error)
@@ -136,11 +180,9 @@ function AdminDashboard() {
       setIsGeneratingReport(true)
       setReportError('')
 
-      // Fetch all transactions from the backend endpoint GET /api/admin/all-transactions
       const txRes = await api.get('/admin/all-transactions')
       const allTransactions = Array.isArray(txRes.data) ? txRes.data : []
 
-      // Generate the PDF report using html2canvas + jsPDF template
       await generateReport({
         adminName,
         approvedUsers,
@@ -160,6 +202,8 @@ function AdminDashboard() {
       setIsGeneratingReport(false)
     }
   }
+
+  const latestBlockIndex = chain.length > 0 ? chain[chain.length - 1].index : 0
 
   return (
     <div className="min-h-screen bg-surface-container-lowest font-sans text-on-surface flex">
@@ -286,7 +330,9 @@ function AdminDashboard() {
                     <span className="material-symbols-outlined text-error">warning</span>
                   </div>
                   <div>
-                    <div className="text-[40px] font-bold text-error leading-none mb-3">0</div>
+                    <div className="text-[40px] font-bold text-error leading-none mb-3">
+                      {fraudAlerts.length}
+                    </div>
                     <div className="text-xs font-medium text-error">Requires immediate review</div>
                   </div>
                 </div>
@@ -297,18 +343,18 @@ function AdminDashboard() {
                       Blockchain Status
                     </span>
                     <span
-                      className="material-symbols-outlined text-[#059669]"
+                      className={`material-symbols-outlined ${validationResult.valid ? 'text-[#059669]' : 'text-error'}`}
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
-                      check_circle
+                      {validationResult.valid ? 'check_circle' : 'warning'}
                     </span>
                   </div>
                   <div>
                     <div className="text-[32px] font-bold text-on-surface leading-none mb-3">
-                      Optimal
+                      {validationResult.valid ? 'Optimal' : 'Tampered'}
                     </div>
                     <div className="text-xs font-medium text-on-surface-variant">
-                      Block #894210
+                      Block #{latestBlockIndex}
                     </div>
                   </div>
                 </div>
@@ -637,9 +683,163 @@ function AdminDashboard() {
             </div>
           )}
 
-          {(activeTab === 'explorer' || activeTab === 'fraud') && (
-            <div className="flex items-center justify-center h-64">
-              <p className="text-on-surface-variant">This section is under construction.</p>
+          {activeTab === 'explorer' && (
+            <div className="max-w-6xl mx-auto">
+              <div className="flex justify-between items-end mb-6">
+                <div>
+                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
+                    Blockchain Audit Ledger
+                  </h1>
+                  <p className="text-on-surface-variant">
+                    Cryptographically linked audit trail of administrative actions.
+                  </p>
+                </div>
+                <button
+                  onClick={fetchBlockchainData}
+                  disabled={isValidating}
+                  className="px-4 py-2 bg-primary text-on-primary rounded-md text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
+                >
+                  <span className={`material-symbols-outlined text-[18px] ${isValidating ? 'animate-spin' : ''}`}>
+                    autorenew
+                  </span>
+                  <span>Validate Now</span>
+                </button>
+              </div>
+
+              {!validationResult.valid && (
+                <div className="bg-[#fff5f5] border border-[#fecaca] text-error p-4 rounded-xl mb-6 flex items-start gap-3 shadow-sm">
+                  <span className="material-symbols-outlined text-error text-[24px]">warning</span>
+                  <div>
+                    <h3 className="font-semibold text-sm">
+                      ⚠ Tampering detected in Block #{validationResult.brokenBlockIndex} — stored hash does not match recalculated hash.
+                    </h3>
+                    <p className="text-xs mt-1 text-error/80">
+                      {validationResult.message}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <p className="text-xs text-on-surface-variant mb-6 italic">
+                This ledger is an audit trail. Tampering here does not alter actual account status, but indicates unauthorized database access.
+              </p>
+
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-surface-container border-b border-outline-variant">
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Action</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Performed By</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Timestamp</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Hash</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Prev Hash</th>
+                      <th className="py-4 px-6 font-semibold text-sm text-on-surface text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chain.length > 0 ? (
+                      chain.map((block) => {
+                        const isBroken = !validationResult.valid && validationResult.brokenBlockIndex === block.index
+                        return (
+                          <tr
+                            key={block._id || block.index}
+                            className={`border-b border-outline-variant transition-colors ${isBroken ? 'bg-red-50 hover:bg-red-100/80' : 'hover:bg-surface-container-low'}`}
+                          >
+                            <td className="py-4 px-6 text-sm font-semibold font-mono">#{block.index}</td>
+                            <td className="py-4 px-6 text-sm text-on-surface font-medium">{block.action}</td>
+                            <td className="py-4 px-6 text-sm text-on-surface-variant">
+                              {block.performedBy?.name || block.performedBy?.email || 'System'}
+                            </td>
+                            <td className="py-4 px-6 text-sm text-on-surface-variant whitespace-nowrap">
+                              {new Date(block.timestamp).toLocaleString()}
+                            </td>
+                            <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.hash}>
+                              {block.hash ? `${block.hash.substring(0, 10)}...` : 'N/A'}
+                            </td>
+                            <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.previousHash}>
+                              {block.previousHash ? (block.previousHash === '0' ? '0' : `${block.previousHash.substring(0, 10)}...`) : 'N/A'}
+                            </td>
+                            <td className="py-4 px-6 text-sm text-center whitespace-nowrap">
+                              {isBroken ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-700 border border-red-300 rounded-full text-xs font-semibold">
+                                  ❌ Tampered
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold">
+                                  ✅ Valid
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="7" className="py-8 text-center text-on-surface-variant text-sm">
+                          No audit blocks created yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'fraud' && (
+            <div className="max-w-6xl mx-auto">
+              <div className="flex justify-between items-end mb-8">
+                <div>
+                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
+                    Fraud Alerts
+                  </h1>
+                  <p className="text-on-surface-variant">
+                    Security detection log for blockchain chain verification anomalies.
+                  </p>
+                </div>
+              </div>
+
+              {fraudAlerts.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {fraudAlerts.map((alert) => (
+                    <div
+                      key={alert._id || alert.blockIndex}
+                      className="bg-[#fff5f5] border border-[#fecaca] rounded-xl p-6 shadow-sm flex items-start justify-between relative overflow-hidden"
+                    >
+                      <div className="absolute top-0 left-0 w-1 h-full bg-error"></div>
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-full bg-error/10 text-error flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-[24px]">warning</span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 bg-error/10 text-error rounded">
+                              Block #{alert.blockIndex}
+                            </span>
+                            <span className="text-xs text-on-surface-variant font-medium">
+                              Detected at: {new Date(alert.detectedAt).toLocaleString()}
+                            </span>
+                          </div>
+                          <h3 className="text-base font-semibold text-on-surface mt-1">
+                            {alert.message}
+                          </h3>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-12 text-center shadow-sm">
+                  <span className="material-symbols-outlined text-emerald-600 text-[48px] mb-3">
+                    verified_user
+                  </span>
+                  <h3 className="text-lg font-semibold text-on-surface">No fraud alerts — all blocks verified.</h3>
+                  <p className="text-sm text-on-surface-variant mt-1">
+                    The audit ledger integrity is 100% verified and free of tampering.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
