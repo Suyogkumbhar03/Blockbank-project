@@ -4,6 +4,15 @@ const getNotifications = async (req, res) => {
     try {
         if (req.user && req.user.role === 'admin') {
             try {
+                const { validateChainInternal } = require('./blockchainController');
+                if (validateChainInternal) {
+                    await validateChainInternal(req.user.id);
+                }
+            } catch (bcErr) {
+                console.error('Failed to sync blockchain validation notifications for admin:', bcErr);
+            }
+
+            try {
                 const User = require('../models/User');
                 const pendingUsers = await User.find({ status: 'pending' });
                 for (const pUser of pendingUsers) {

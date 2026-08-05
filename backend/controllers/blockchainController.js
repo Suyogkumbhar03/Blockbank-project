@@ -53,45 +53,53 @@ const getChain = async (req, res) => {
 };
 
 /**
+ * Internal logic for validating blockchain integrity.
+ */
+const validateChainInternal = async (currentAdminId = null) => {
+    const blocks = await Block.find().sort({ index: 1 });
+
+    for (let i = 0; i < blocks.length; i++) {
+        const currentBlock = blocks[i];
+        const computedHash = Block.computeHash(currentBlock);
+
+        // Check 1: stored hash vs recomputed hash
+        if (currentBlock.hash !== computedHash) {
+            const message = `Tampering detected in Block #${currentBlock.index} — stored hash does not match recalculated hash.`;
+            await handleTampering(currentBlock.index, message, currentAdminId);
+            return {
+                valid: false,
+                brokenBlockIndex: currentBlock.index,
+                message
+            };
+        }
+
+        // Check 2: previousHash link matching prior block's actual hash
+        if (i > 0) {
+            const previousBlock = blocks[i - 1];
+            if (currentBlock.previousHash !== previousBlock.hash) {
+                const message = `Tampering detected in Block #${currentBlock.index} — previousHash does not match prior block hash.`;
+                await handleTampering(currentBlock.index, message, currentAdminId);
+                return {
+                    valid: false,
+                    brokenBlockIndex: currentBlock.index,
+                    message
+                };
+            }
+        }
+    }
+
+    return { valid: true };
+};
+
+/**
  * GET /api/admin/blockchain/validate
  * Recomputes each block's hash and checks previousHash against prior block's hash.
  * If invalid, creates a FraudAlert (if duplicate doesn't exist) and a Notification for the admin.
  */
 const validateChain = async (req, res) => {
     try {
-        const blocks = await Block.find().sort({ index: 1 });
-
-        for (let i = 0; i < blocks.length; i++) {
-            const currentBlock = blocks[i];
-            const computedHash = Block.computeHash(currentBlock);
-
-            // Check 1: stored hash vs recomputed hash
-            if (currentBlock.hash !== computedHash) {
-                const message = `Tampering detected in Block #${currentBlock.index} — stored hash does not match recalculated hash.`;
-                await handleTampering(currentBlock.index, message, req.user ? req.user.id : null);
-                return res.status(200).json({
-                    valid: false,
-                    brokenBlockIndex: currentBlock.index,
-                    message
-                });
-            }
-
-            // Check 2: previousHash link matching prior block's actual hash
-            if (i > 0) {
-                const previousBlock = blocks[i - 1];
-                if (currentBlock.previousHash !== previousBlock.hash) {
-                    const message = `Tampering detected in Block #${currentBlock.index} — previousHash does not match prior block hash.`;
-                    await handleTampering(currentBlock.index, message, req.user ? req.user.id : null);
-                    return res.status(200).json({
-                        valid: false,
-                        brokenBlockIndex: currentBlock.index,
-                        message
-                    });
-                }
-            }
-        }
-
-        res.status(200).json({ valid: true });
+        const result = await validateChainInternal(req.user ? req.user.id : null);
+        res.status(200).json(result);
     } catch (error) {
         res.status(500).json({ message: 'Server error validating blockchain', error: error.message });
     }
@@ -109,20 +117,31 @@ const handleTampering = async (blockIndex, message, currentAdminId) => {
             await alert.save();
         }
 
-        // Notify admin user
-        let adminUserId = currentAdminId;
-        if (!adminUserId) {
-            const admin = await User.findOne({ role: 'admin' });
-            if (admin) adminUserId = admin._id;
-        }
+        // Find all admins to notify
+        const admins = await User.find({ role: 'admin' });
+        const notifMessage = `[FRAUD ALERT] Blockchain tamper detected at Block #${blockIndex}!`;
 
-        if (adminUserId) {
-            const notif = new Notification({
-                userId: adminUserId,
-                message: `[FRAUD ALERT] Blockchain tamper detected at Block #${blockIndex}!`,
-                type: 'fraud_alert'
-            });
-            await notif.save();
+        for (const admin of admins) {
+            // Check for existing fraud_alert notifications for this specific block index
+            const existingNotifs = await Notification.find({
+                userId: admin._id,
+                type: 'fraud_alert',
+                message: notifMessage
+            }).sort({ timestamp: -1 });
+
+            if (existingNotifs.length > 1) {
+                // Deduplicate: keep the newest notification and delete historical duplicates
+                const idsToDelete = existingNotifs.slice(1).map(n => n._id);
+                await Notification.deleteMany({ _id: { $in: idsToDelete } });
+            } else if (existingNotifs.length === 0) {
+                // Save a single notification if none exists
+                const notif = new Notification({
+                    userId: admin._id,
+                    message: notifMessage,
+                    type: 'fraud_alert'
+                });
+                await notif.save();
+            }
         }
     } catch (err) {
         console.error('Failed to record fraud alert / notification:', err);
@@ -146,5 +165,6 @@ module.exports = {
     addBlock,
     getChain,
     validateChain,
+    validateChainInternal,
     getFraudAlerts
 };
