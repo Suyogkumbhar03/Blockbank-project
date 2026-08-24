@@ -30,6 +30,11 @@ function AdminDashboard() {
   const [fraudAlerts, setFraudAlerts] = useState([])
   const [isValidating, setIsValidating] = useState(false)
 
+  // Payment Blockchain state
+  const [explorerSubTab, setExplorerSubTab] = useState('admin') // 'admin' | 'payments'
+  const [paymentChain, setPaymentChain] = useState([])
+  const [loadingPaymentChain, setLoadingPaymentChain] = useState(false)
+
   useEffect(() => {
     const loadAdminName = () => {
       try {
@@ -98,10 +103,35 @@ function AdminDashboard() {
     }
   }, [])
 
+  const fetchPaymentBlockchainData = useCallback(async () => {
+    try {
+      setLoadingPaymentChain(true)
+      const res = await api.get('/admin/payment-blockchain/chain')
+      setPaymentChain(res.data || [])
+    } catch (error) {
+      console.error('Failed to fetch payment blockchain data', error)
+    } finally {
+      setLoadingPaymentChain(false)
+    }
+  }, [])
+
+  const formatBlockTime = (dateStr) => {
+    if (!dateStr) return 'N/A'
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return 'N/A'
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) +
+      ' at ' +
+      d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
+  }
+
   // Initial fetch + re-fetch when tab changes
   useEffect(() => {
     fetchUsers()
-  }, [fetchUsers, activeTab])
+    if (activeTab === 'explorer') {
+      fetchBlockchainData()
+      fetchPaymentBlockchainData()
+    }
+  }, [fetchUsers, fetchBlockchainData, fetchPaymentBlockchainData, activeTab])
 
   // Poll every 5 seconds silently to pick up changes from other browsers/sessions
   useEffect(() => {
@@ -669,19 +699,192 @@ function AdminDashboard() {
           )}
 
           {activeTab === 'explorer' && (
-            <div className="w-full flex items-center justify-center py-12">
-              <div className="w-full max-w-[460px] bg-surface-container-lowest border border-outline-variant rounded-xl p-8 shadow-sm text-center flex flex-col items-center">
-                <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
-                  <span className="material-symbols-outlined text-amber-500 text-[28px]">construction</span>
+            <div className="max-w-6xl mx-auto flex flex-col gap-6">
+              {/* Explorer Header */}
+              <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                <div>
+                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
+                    Blockchain Explorer
+                  </h1>
+                  <p className="text-on-surface-variant">
+                    Inspect immutable ledger blocks for admin actions and payment transactions.
+                  </p>
                 </div>
-                <h2 className="text-xl font-bold text-on-surface mb-1">Blockchain Explorer</h2>
-                <p className="text-sm text-on-surface-variant mb-4">This section is currently under construction.</p>
-                <span className="inline-block px-3 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-full text-xs font-semibold uppercase tracking-wider">
-                  Under Construction
-                </span>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      if (explorerSubTab === 'admin') fetchBlockchainData()
+                      else fetchPaymentBlockchainData()
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg text-sm font-semibold hover:bg-surface-container transition-colors shadow-sm cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">refresh</span>
+                    Refresh
+                  </button>
+                </div>
               </div>
+
+              {/* Sub-tabs switch */}
+              <div className="flex bg-surface-container rounded-lg p-1 w-fit border border-outline-variant/60">
+                <button
+                  onClick={() => setExplorerSubTab('admin')}
+                  className={`px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                    explorerSubTab === 'admin'
+                      ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
+                  Admin Actions ({chain.length})
+                </button>
+                <button
+                  onClick={() => setExplorerSubTab('payments')}
+                  className={`px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+                    explorerSubTab === 'payments'
+                      ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[18px]">payments</span>
+                  Payments ({paymentChain.length})
+                </button>
+              </div>
+
+              {/* View 1: Admin Actions Blockchain */}
+              {explorerSubTab === 'admin' && (
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+                  <div className="p-4 bg-surface-container-low border-b border-outline-variant flex items-center justify-between">
+                    <h3 className="font-bold text-sm text-on-surface">Admin Actions Block Ledger</h3>
+                    <span className="text-xs text-on-surface-variant font-mono">{chain.length} Total Blocks</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-surface-container border-b border-outline-variant">
+                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
+                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Action</th>
+                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Type</th>
+                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Performed By</th>
+                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Target User</th>
+                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Timestamp</th>
+                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Hash</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {chain.length > 0 ? (
+                          chain.map((block) => (
+                            <tr
+                              key={block._id || block.index}
+                              className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                            >
+                              <td className="py-4 px-6 text-sm font-bold font-mono text-primary">#{block.index}</td>
+                              <td className="py-4 px-6 text-sm text-on-surface font-medium">{block.action}</td>
+                              <td className="py-4 px-6 text-sm">
+                                <span className="px-2.5 py-0.5 bg-surface-container rounded text-xs font-bold uppercase tracking-wider text-on-surface-variant font-mono">
+                                  {block.actionType}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6 text-sm text-on-surface-variant">{block.performedBy?.name || 'Admin'}</td>
+                              <td className="py-4 px-6 text-sm text-on-surface-variant">{block.targetUserId?.name || 'N/A'}</td>
+                              <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">{formatBlockTime(block.timestamp)}</td>
+                              <td className="py-4 px-6 text-sm font-mono text-on-surface-variant">
+                                {block.hash ? `${block.hash.substring(0, 16)}...` : 'N/A'}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="7" className="py-8 text-center text-on-surface-variant text-sm">
+                              No admin action blocks recorded in blockchain.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* View 2: Payments Blockchain */}
+              {explorerSubTab === 'payments' && (
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+                  <div className="p-4 bg-surface-container-low border-b border-outline-variant flex items-center justify-between">
+                    <h3 className="font-bold text-sm text-on-surface">Payment Transaction Block Ledger</h3>
+                    <span className="text-xs text-on-surface-variant font-mono">{paymentChain.length} Total Blocks</span>
+                  </div>
+                  {loadingPaymentChain ? (
+                    <div className="p-12 text-center flex flex-col items-center justify-center gap-3">
+                      <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                      <p className="text-sm text-on-surface-variant font-medium">Loading payment blockchain...</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-surface-container border-b border-outline-variant">
+                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
+                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Transaction ID</th>
+                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Sender</th>
+                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Receiver</th>
+                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Amount</th>
+                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Timestamp</th>
+                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Hash</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paymentChain.length > 0 ? (
+                            paymentChain.map((block) => {
+                              const truncatedTxId = block.transactionId
+                                ? (block.transactionId.length > 14 ? `${block.transactionId.substring(0, 14)}...` : block.transactionId)
+                                : 'N/A'
+                              const truncatedHash = block.hash
+                                ? `${block.hash.substring(0, 16)}...`
+                                : 'N/A'
+
+                              return (
+                                <tr
+                                  key={block._id || block.index}
+                                  className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                                >
+                                  <td className="py-4 px-6 text-sm font-bold font-mono text-primary">#{block.index}</td>
+                                  <td className="py-4 px-6 text-sm font-mono font-semibold text-on-surface" title={block.transactionId}>
+                                    {truncatedTxId}
+                                  </td>
+                                  <td className="py-4 px-6 text-sm">
+                                    <div className="font-bold text-on-surface">{block.senderName}</div>
+                                    <div className="text-xs text-on-surface-variant font-mono">{block.senderPaymentId}</div>
+                                  </td>
+                                  <td className="py-4 px-6 text-sm">
+                                    <div className="font-bold text-on-surface">{block.receiverName}</div>
+                                    <div className="text-xs text-on-surface-variant font-mono">{block.receiverPaymentId}</div>
+                                  </td>
+                                  <td className="py-4 px-6 text-sm font-mono font-bold text-emerald-600">
+                                    ₹{(block.amount || 0).toLocaleString('en-IN')}
+                                  </td>
+                                  <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">{formatBlockTime(block.timestamp)}</td>
+                                  <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.hash}>
+                                    {truncatedHash}
+                                  </td>
+                                </tr>
+                              )
+                            })
+                          ) : (
+                            <tr>
+                              <td colSpan="7" className="py-8 text-center text-on-surface-variant text-sm">
+                                No payment blocks recorded in blockchain yet.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
+
 
           {activeTab === 'fraud' && (
             <div className="w-full flex items-center justify-center py-12">

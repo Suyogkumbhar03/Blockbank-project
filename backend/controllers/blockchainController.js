@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const Block = require('../models/Block');
+const PaymentBlock = require('../models/PaymentBlock');
 const FraudAlert = require('../models/FraudAlert');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
@@ -239,9 +240,23 @@ const getFraudAlerts = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/admin/payment-blockchain/chain
+ * Returns all PaymentBlocks sorted by index ascending.
+ */
+const getPaymentChain = async (req, res) => {
+    try {
+        const blocks = await PaymentBlock.find().sort({ index: 1 });
+        res.status(200).json(blocks);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error fetching payment blockchain', error: error.message });
+    }
+};
+
 module.exports = {
     addBlock,
     getChain,
+    getPaymentChain,
     validateChain,
     validateChainInternal,
     getFraudAlerts

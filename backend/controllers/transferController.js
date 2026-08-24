@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const bcrypt = require('bcrypt');
 const Notification = require('../models/Notification');
+const { addPaymentBlock } = require('../utils/paymentBlockchain');
 
 // Helper for PIN verification and attempt/lockout tracking
 const verifyAndTrackPin = async (user, pin) => {
@@ -219,6 +220,17 @@ const transferMoney = async (req, res) => {
         });
 
         await transaction.save();
+
+        // Create PaymentBlock in payment blockchain
+        addPaymentBlock({
+            transactionId: transaction.transactionId,
+            senderPaymentId: transaction.senderPaymentId,
+            receiverPaymentId: transaction.receiverPaymentId,
+            senderName: transaction.senderName,
+            receiverName: transaction.receiverName,
+            amount: transaction.amount,
+            timestamp: transaction.timestamp
+        });
 
         // Trigger receiver notification
         try {
