@@ -101,18 +101,7 @@ function AdminDashboard() {
   // Initial fetch + re-fetch when tab changes
   useEffect(() => {
     fetchUsers()
-    fetchBlockchainData()
-    fetchFraudAlerts()
-  }, [fetchUsers, fetchBlockchainData, fetchFraudAlerts, activeTab])
-
-  // Specific triggers for explorer and fraud tabs
-  useEffect(() => {
-    if (activeTab === 'explorer') {
-      fetchBlockchainData()
-    } else if (activeTab === 'fraud') {
-      fetchFraudAlerts()
-    }
-  }, [activeTab, fetchBlockchainData, fetchFraudAlerts])
+  }, [fetchUsers, activeTab])
 
   // Poll every 5 seconds silently to pick up changes from other browsers/sessions
   useEffect(() => {
@@ -321,41 +310,37 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-[#fff5f5] border border-[#fecaca] rounded-xl p-6 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-error"></div>
-                  <div className="flex justify-between items-start mb-6">
-                    <span className="text-xs font-semibold tracking-wider text-error uppercase">
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm flex flex-col justify-between">
+                  <div className="flex justify-between items-start mb-4">
+                    <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
                       Active Fraud Alerts
                     </span>
-                    <span className="material-symbols-outlined text-error">warning</span>
+                    <span className="material-symbols-outlined text-amber-500">warning</span>
                   </div>
                   <div>
-                    <div className="text-[40px] font-bold text-error leading-none mb-3">
-                      {fraudAlerts.length}
+                    <div className="text-[36px] font-bold text-on-surface leading-none mb-3">
+                      — —
                     </div>
-                    <div className="text-xs font-medium text-error">Requires immediate review</div>
+                    <span className="inline-block px-2.5 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-md text-xs font-semibold tracking-wider">
+                      Under Construction
+                    </span>
                   </div>
                 </div>
 
                 <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm flex flex-col justify-between">
-                  <div className="flex justify-between items-start mb-6">
+                  <div className="flex justify-between items-start mb-4">
                     <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
                       Blockchain Status
                     </span>
-                    <span
-                      className={`material-symbols-outlined ${validationResult.valid ? 'text-[#059669]' : 'text-error'}`}
-                      style={{ fontVariationSettings: "'FILL' 1" }}
-                    >
-                      {validationResult.valid ? 'check_circle' : 'warning'}
-                    </span>
+                    <span className="material-symbols-outlined text-amber-500">construction</span>
                   </div>
                   <div>
-                    <div className="text-[32px] font-bold text-on-surface leading-none mb-3">
-                      {validationResult.valid ? 'Optimal' : 'Tampered'}
+                    <div className="text-[36px] font-bold text-on-surface leading-none mb-3">
+                      — —
                     </div>
-                    <div className="text-xs font-medium text-on-surface-variant">
-                      Block #{latestBlockIndex}
-                    </div>
+                    <span className="inline-block px-2.5 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-md text-xs font-semibold tracking-wider">
+                      Under Construction
+                    </span>
                   </div>
                 </div>
               </div>
@@ -524,8 +509,8 @@ function AdminDashboard() {
                             <button
                               onClick={() => handleToggleFreeze(user)}
                               className={`px-3 py-1.5 rounded text-xs font-semibold border transition-colors cursor-pointer inline-flex items-center gap-1 ${user.isFrozen
-                                  ? 'bg-primary text-on-primary border-primary hover:bg-primary/90'
-                                  : 'bg-surface-container-high text-on-surface border-outline-variant hover:bg-surface-container'
+                                ? 'bg-primary text-on-primary border-primary hover:bg-primary/90'
+                                : 'bg-surface-container-high text-on-surface border-outline-variant hover:bg-surface-container'
                                 }`}
                             >
                               <span className="material-symbols-outlined text-[14px]">
@@ -684,162 +669,32 @@ function AdminDashboard() {
           )}
 
           {activeTab === 'explorer' && (
-            <div className="max-w-6xl mx-auto">
-              <div className="flex justify-between items-end mb-6">
-                <div>
-                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
-                    Blockchain Audit Ledger
-                  </h1>
-                  <p className="text-on-surface-variant">
-                    Cryptographically linked audit trail of administrative actions.
-                  </p>
+            <div className="w-full flex items-center justify-center py-12">
+              <div className="w-full max-w-[460px] bg-surface-container-lowest border border-outline-variant rounded-xl p-8 shadow-sm text-center flex flex-col items-center">
+                <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+                  <span className="material-symbols-outlined text-amber-500 text-[28px]">construction</span>
                 </div>
-                <button
-                  onClick={fetchBlockchainData}
-                  disabled={isValidating}
-                  className="px-4 py-2 bg-primary text-on-primary rounded-md text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-2"
-                >
-                  <span className={`material-symbols-outlined text-[18px] ${isValidating ? 'animate-spin' : ''}`}>
-                    autorenew
-                  </span>
-                  <span>Validate Now</span>
-                </button>
-              </div>
-
-              {!validationResult.valid && (
-                <div className="bg-[#fff5f5] border border-[#fecaca] text-error p-4 rounded-xl mb-6 flex items-start gap-3 shadow-sm">
-                  <span className="material-symbols-outlined text-error text-[24px]">warning</span>
-                  <div>
-                    <h3 className="font-semibold text-sm">
-                      ⚠ Tampering detected in Block #{validationResult.brokenBlockIndex} — stored hash does not match recalculated hash.
-                    </h3>
-                    <p className="text-xs mt-1 text-error/80">
-                      {validationResult.message}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <p className="text-xs text-on-surface-variant mb-6 italic">
-                This ledger is an audit trail. Tampering here does not alter actual account status, but indicates unauthorized database access.
-              </p>
-
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-surface-container border-b border-outline-variant">
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Action</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Performed By</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Timestamp</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Hash</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Prev Hash</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {chain.length > 0 ? (
-                      chain.map((block) => {
-                        const isBroken = !validationResult.valid && validationResult.brokenBlockIndex === block.index
-                        return (
-                          <tr
-                            key={block._id || block.index}
-                            className={`border-b border-outline-variant transition-colors ${isBroken ? 'bg-red-50 hover:bg-red-100/80' : 'hover:bg-surface-container-low'}`}
-                          >
-                            <td className="py-4 px-6 text-sm font-semibold font-mono">#{block.index}</td>
-                            <td className="py-4 px-6 text-sm text-on-surface font-medium">{block.action}</td>
-                            <td className="py-4 px-6 text-sm text-on-surface-variant">
-                              {block.performedBy?.name || block.performedBy?.email || 'System'}
-                            </td>
-                            <td className="py-4 px-6 text-sm text-on-surface-variant whitespace-nowrap">
-                              {new Date(block.timestamp).toLocaleString()}
-                            </td>
-                            <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.hash}>
-                              {block.hash ? `${block.hash.substring(0, 10)}...` : 'N/A'}
-                            </td>
-                            <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.previousHash}>
-                              {block.previousHash ? (block.previousHash === '0' ? '0' : `${block.previousHash.substring(0, 10)}...`) : 'N/A'}
-                            </td>
-                            <td className="py-4 px-6 text-sm text-center whitespace-nowrap">
-                              {isBroken ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-100 text-red-700 border border-red-300 rounded-full text-xs font-semibold">
-                                  ❌ Tampered
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-xs font-semibold">
-                                  ✅ Valid
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })
-                    ) : (
-                      <tr>
-                        <td colSpan="7" className="py-8 text-center text-on-surface-variant text-sm">
-                          No audit blocks created yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                <h2 className="text-xl font-bold text-on-surface mb-1">Blockchain Explorer</h2>
+                <p className="text-sm text-on-surface-variant mb-4">This section is currently under construction.</p>
+                <span className="inline-block px-3 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-full text-xs font-semibold uppercase tracking-wider">
+                  Under Construction
+                </span>
               </div>
             </div>
           )}
 
           {activeTab === 'fraud' && (
-            <div className="max-w-6xl mx-auto">
-              <div className="flex justify-between items-end mb-8">
-                <div>
-                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
-                    Fraud Alerts
-                  </h1>
-                  <p className="text-on-surface-variant">
-                    Security detection log for blockchain chain verification anomalies.
-                  </p>
+            <div className="w-full flex items-center justify-center py-12">
+              <div className="w-full max-w-[460px] bg-surface-container-lowest border border-outline-variant rounded-xl p-8 shadow-sm text-center flex flex-col items-center">
+                <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
+                  <span className="material-symbols-outlined text-amber-500 text-[28px]">warning</span>
                 </div>
+                <h2 className="text-xl font-bold text-on-surface mb-1">Fraud Alerts</h2>
+                <p className="text-sm text-on-surface-variant mb-4">This section is currently under construction.</p>
+                <span className="inline-block px-3 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-full text-xs font-semibold uppercase tracking-wider">
+                  Under Construction
+                </span>
               </div>
-
-              {fraudAlerts.length > 0 ? (
-                <div className="flex flex-col gap-4">
-                  {fraudAlerts.map((alert) => (
-                    <div
-                      key={alert._id || alert.blockIndex}
-                      className="bg-[#fff5f5] border border-[#fecaca] rounded-xl p-6 shadow-sm flex items-start justify-between relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 left-0 w-1 h-full bg-error"></div>
-                      <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-full bg-error/10 text-error flex items-center justify-center shrink-0">
-                          <span className="material-symbols-outlined text-[24px]">warning</span>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 bg-error/10 text-error rounded">
-                              Block #{alert.blockIndex}
-                            </span>
-                            <span className="text-xs text-on-surface-variant font-medium">
-                              Detected at: {new Date(alert.detectedAt).toLocaleString()}
-                            </span>
-                          </div>
-                          <h3 className="text-base font-semibold text-on-surface mt-1">
-                            {alert.message}
-                          </h3>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-12 text-center shadow-sm">
-                  <span className="material-symbols-outlined text-emerald-600 text-[48px] mb-3">
-                    verified_user
-                  </span>
-                  <h3 className="text-lg font-semibold text-on-surface">No fraud alerts — all blocks verified.</h3>
-                  <p className="text-sm text-on-surface-variant mt-1">
-                    The audit ledger integrity is 100% verified and free of tampering.
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>

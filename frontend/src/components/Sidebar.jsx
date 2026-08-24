@@ -119,7 +119,10 @@ function Sidebar({ role = 'user', activeTab, setActiveTab }) {
                 <a
                   className="flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container transition-colors"
                   href="#"
-                  onClick={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    alert(`${item.label} feature is under construction.`);
+                  }}
                 >
                   <span className="material-symbols-outlined">{item.icon}</span>
                   <span className="text-xs font-semibold uppercase tracking-wider">
