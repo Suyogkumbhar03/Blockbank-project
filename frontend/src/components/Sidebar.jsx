@@ -9,7 +9,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab }) {
       { id: 'dashboard', label: 'Dashboard', icon: 'grid_view' },
       { id: 'accounts', label: 'Accounts', icon: 'account_balance' },
       { id: 'approve-users', label: 'Approve Users', icon: 'person_check' },
-      { id: 'rejected-users', label: 'Rejected Users', icon: 'person_cancel' },
+      { id: 'freeze-accounts', label: 'Freeze Accounts', icon: 'ac_unit' },
       { id: 'transactions', label: 'Transactions', icon: 'receipt_long' },
       { id: 'explorer', label: 'Blockchain Explorer', icon: 'account_tree' },
       { id: 'fraud', label: 'Fraud Alerts', icon: 'gpp_bad' },

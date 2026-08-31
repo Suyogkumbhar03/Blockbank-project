@@ -38,6 +38,9 @@ function AdminDashboard() {
   const [paymentChain, setPaymentChain] = useState([])
   const [loadingPaymentChain, setLoadingPaymentChain] = useState(false)
 
+  // Approve Users sub-tab state
+  const [approveSubTab, setApproveSubTab] = useState('pending') // 'pending' | 'rejected'
+
   useEffect(() => {
     const loadAdminName = () => {
       try {
@@ -575,132 +578,164 @@ function AdminDashboard() {
             </div>
           )}
 
-          {activeTab === 'approve-users' && (
+          {(activeTab === 'approve-users' || activeTab === 'rejected-users') && (
             <div className="max-w-6xl mx-auto">
-              <div className="flex justify-between items-end mb-8">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
                 <div>
                   <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
-                    Approve Users
+                    Approve Users & Management
                   </h1>
                   <p className="text-on-surface-variant">
-                    Review and approve new user registrations.
+                    Review pending user registration requests and view rejected registrations.
                   </p>
+                </div>
+
+                {/* Sub-tabs Navigation */}
+                <div className="flex items-center gap-2 bg-surface-container border border-outline-variant p-1 rounded-xl shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setApproveSubTab('pending')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      approveSubTab === 'pending'
+                        ? 'bg-surface-container-lowest text-on-surface border border-outline-variant shadow-xs font-bold'
+                        : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">person_check</span>
+                    <span>Pending Approvals</span>
+                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                      approveSubTab === 'pending'
+                        ? 'bg-amber-500/20 text-amber-700'
+                        : 'bg-surface-container-high text-on-surface-variant'
+                    }`}>
+                      {pendingUsers.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setApproveSubTab('rejected')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                      approveSubTab === 'rejected'
+                        ? 'bg-surface-container-lowest text-on-surface border border-outline-variant shadow-xs font-bold'
+                        : 'text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">person_cancel</span>
+                    <span>Rejected Users</span>
+                    <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
+                      approveSubTab === 'rejected'
+                        ? 'bg-red-500/20 text-red-700'
+                        : 'bg-surface-container-high text-on-surface-variant'
+                    }`}>
+                      {rejectedUsers.length}
+                    </span>
+                  </button>
                 </div>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-surface-container border-b border-outline-variant">
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Email</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Phone</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface text-right">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingUsers.length > 0 ? (
-                      pendingUsers.map((user) => (
-                        <tr
-                          key={user._id || user.id}
-                          className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
-                        >
-                          <td className="py-4 px-6 text-sm font-medium">{user.name}</td>
-                          <td className="py-4 px-6 text-sm text-on-surface-variant">{user.email}</td>
-                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
-                            {user.phone || 'N/A'}
-                          </td>
-                          <td className="py-4 px-6 text-sm text-right space-x-2">
-                            <button
-                              onClick={() => handleApprove(user._id || user.id)}
-                              className="px-3 py-1.5 bg-primary text-on-primary rounded text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleReject(user._id || user.id)}
-                              className="px-3 py-1.5 bg-error text-white rounded text-xs font-semibold hover:bg-error/90 transition-colors cursor-pointer"
-                            >
-                              Reject
-                            </button>
+              {approveSubTab === 'pending' ? (
+                /* Pending Users Table */
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-surface-container border-b border-outline-variant">
+                        <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
+                        <th className="py-4 px-6 font-semibold text-sm text-on-surface">Email</th>
+                        <th className="py-4 px-6 font-semibold text-sm text-on-surface">Phone</th>
+                        <th className="py-4 px-6 font-semibold text-sm text-on-surface text-right">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingUsers.length > 0 ? (
+                        pendingUsers.map((user) => (
+                          <tr
+                            key={user._id || user.id}
+                            className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                          >
+                            <td className="py-4 px-6 text-sm font-medium">{user.name}</td>
+                            <td className="py-4 px-6 text-sm text-on-surface-variant">{user.email}</td>
+                            <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                              {user.phone || 'N/A'}
+                            </td>
+                            <td className="py-4 px-6 text-sm text-right space-x-2">
+                              <button
+                                onClick={() => handleApprove(user._id || user.id)}
+                                className="px-3 py-1.5 bg-primary text-on-primary rounded text-xs font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleReject(user._id || user.id)}
+                                className="px-3 py-1.5 bg-error text-white rounded text-xs font-semibold hover:bg-error/90 transition-colors cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="4" className="py-8 text-center text-on-surface-variant text-sm">
+                            No pending users found.
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="4" className="py-8 text-center text-on-surface-variant text-sm">
-                          No pending users found.
-                        </td>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                /* Rejected Users Table */
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-surface-container border-b border-outline-variant">
+                        <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
+                        <th className="py-4 px-6 font-semibold text-sm text-on-surface">Email</th>
+                        <th className="py-4 px-6 font-semibold text-sm text-on-surface">Phone</th>
+                        <th className="py-4 px-6 font-semibold text-sm text-on-surface">Payment ID</th>
+                        <th className="py-4 px-6 font-semibold text-sm text-on-surface">Status</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {rejectedUsers.length > 0 ? (
+                        rejectedUsers.map((user) => (
+                          <tr
+                            key={user._id || user.id}
+                            className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                          >
+                            <td className="py-4 px-6 text-sm font-medium">{user.name}</td>
+                            <td className="py-4 px-6 text-sm text-on-surface-variant">{user.email}</td>
+                            <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                              {user.phone || 'N/A'}
+                            </td>
+                            <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
+                              {user.paymentId || '—'}
+                            </td>
+                            <td className="py-4 px-6 text-sm">
+                              <span className="px-2.5 py-1 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full text-xs font-semibold border border-red-200">
+                                Rejected
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="5" className="py-8 text-center text-on-surface-variant text-sm">
+                            No rejected users found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
           {activeTab === 'transactions' && <AdminTransactionsView />}
-
-          {activeTab === 'rejected-users' && (
-            <div className="max-w-6xl mx-auto">
-              <div className="flex justify-between items-end mb-8">
-                <div>
-                  <h1 className="text-[32px] font-semibold text-on-surface tracking-tight mb-2">
-                    Rejected Users
-                  </h1>
-                  <p className="text-on-surface-variant">
-                    Read-only list of users whose registrations were rejected.
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-surface-container border-b border-outline-variant">
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Email</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Phone</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Payment ID</th>
-                      <th className="py-4 px-6 font-semibold text-sm text-on-surface">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rejectedUsers.length > 0 ? (
-                      rejectedUsers.map((user) => (
-                        <tr
-                          key={user._id || user.id}
-                          className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
-                        >
-                          <td className="py-4 px-6 text-sm font-medium">{user.name}</td>
-                          <td className="py-4 px-6 text-sm text-on-surface-variant">{user.email}</td>
-                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
-                            {user.phone || 'N/A'}
-                          </td>
-                          <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">
-                            {user.paymentId || '—'}
-                          </td>
-                          <td className="py-4 px-6 text-sm">
-                            <span className="px-2 py-1 bg-[#fff5f5] text-error border border-[#fecaca] rounded text-xs font-semibold uppercase">
-                              Rejected
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="5" className="py-8 text-center text-on-surface-variant text-sm">
-                          No rejected users found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
 
           {activeTab === 'explorer' && (
             <div className="max-w-6xl mx-auto flex flex-col gap-6">
