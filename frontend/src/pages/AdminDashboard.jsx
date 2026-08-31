@@ -23,6 +23,7 @@ function AdminDashboard() {
   const [adminName, setAdminName] = useState('Admin')
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [reportError, setReportError] = useState('')
+  const [chartPeriod, setChartPeriod] = useState('1D')
 
   // Blockchain audit ledger state
   const [chain, setChain] = useState([])
@@ -208,7 +209,8 @@ function AdminDashboard() {
         pendingUsers,
         rejectedUsers,
         totalUsers: approvedUsers.length + pendingUsers.length + rejectedUsers.length,
-        allTransactions
+        allTransactions,
+        chartPeriod
       })
     } catch (error) {
       console.error('Failed to generate system report', error)
@@ -378,7 +380,7 @@ function AdminDashboard() {
               {/* Bottom Section */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                  <TransactionVolumeChart />
+                  <TransactionVolumeChart period={chartPeriod} onChangePeriod={setChartPeriod} />
                 </div>
 
                 {/* Quick Actions */}

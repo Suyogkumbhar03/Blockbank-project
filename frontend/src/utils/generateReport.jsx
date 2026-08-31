@@ -13,7 +13,8 @@ export async function generateReport(reportData = {}) {
     approvedUsers = 0,
     pendingUsers = 0,
     rejectedUsers = 0,
-    allTransactions = []
+    allTransactions = [],
+    chartPeriod = '1D'
   } = reportData
 
   const generatedAt = new Date()
@@ -35,39 +36,106 @@ export async function generateReport(reportData = {}) {
   const rejCount = Array.isArray(rejectedUsers) ? rejectedUsers.length : Number(rejectedUsers) || 0
   const totUsers = Number(totalUsers) || appCount + pendCount + rejCount
 
-  const txList = Array.isArray(allTransactions) ? allTransactions : []
+  // Determine period bounds and chart title based on chartPeriod
+  let periodStart
+  let periodEnd = generatedAt
+  let chartSectionTitle = 'Transaction Volume & Activity Trend'
+
+  const formatShortDate = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  const formatFullDate = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+
+  const isCustomPeriod = typeof chartPeriod === 'object' && chartPeriod?.custom
+  const periodKey = isCustomPeriod ? 'Custom' : chartPeriod
+
+  if (periodKey === '1D') {
+    periodStart = new Date(generatedAt.getTime() - 24 * 60 * 60 * 1000)
+    chartSectionTitle = 'Transaction Volume — Last 24 Hours'
+  } else if (periodKey === '1W') {
+    periodStart = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000)
+    chartSectionTitle = 'Transaction Volume — Last 7 Days'
+  } else if (periodKey === '1M') {
+    periodStart = new Date(generatedAt.getTime() - 30 * 24 * 60 * 60 * 1000)
+    chartSectionTitle = 'Transaction Volume — Last 30 Days'
+  } else if (isCustomPeriod || periodKey === 'Custom') {
+    let sD = new Date((chartPeriod.startDate || '') + 'T00:00:00')
+    let eD = new Date((chartPeriod.endDate || '') + 'T23:59:59.999')
+    if (isNaN(sD.getTime())) sD = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000)
+    if (isNaN(eD.getTime())) eD = generatedAt
+
+    if (sD.getTime() > eD.getTime()) {
+      const temp = sD
+      sD = eD
+      eD = temp
+    }
+    periodStart = sD
+    periodEnd = eD
+
+    if (periodStart.getFullYear() === periodEnd.getFullYear()) {
+      chartSectionTitle = `Transaction Volume — ${formatShortDate(periodStart)} to ${formatFullDate(periodEnd)}`
+    } else {
+      chartSectionTitle = `Transaction Volume — ${formatFullDate(periodStart)} to ${formatFullDate(periodEnd)}`
+    }
+  } else {
+    periodStart = new Date(generatedAt.getTime() - 24 * 60 * 60 * 1000)
+    chartSectionTitle = 'Transaction Volume — Last 24 Hours'
+  }
+
+  // Filter transactions to selected period
+  const rawTxList = Array.isArray(allTransactions) ? allTransactions : []
+  const txList = rawTxList.filter((t) => {
+    if (!t.timestamp) return false
+    const tTime = new Date(t.timestamp).getTime()
+    return tTime >= periodStart.getTime() && tTime <= periodEnd.getTime()
+  })
+
   const totalTxCount = txList.length
   const totalAmountTransferred = txList.reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const avgTxAmount = totalTxCount > 0 ? totalAmountTransferred / totalTxCount : 0
 
-  const sevenDaysAgo = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000)
-  const txInLast7Days = txList.filter((t) => {
-    if (!t.timestamp) return false
-    return new Date(t.timestamp) >= sevenDaysAgo
-  }).length
-
-  // Calculate 7-Day Volume and Transaction Count Data for Chart
+  // Calculate Volume and Transaction Count Data for Chart
   const dailyData = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(generatedAt)
-    d.setDate(d.getDate() - i)
-    const dayStr = d.toISOString().split('T')[0]
-    const dateLabel = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+  const diffMs = periodEnd.getTime() - periodStart.getTime()
+  const diffDays = Math.max(1, Math.round(diffMs / (24 * 60 * 60 * 1000)))
 
-    let volume = 0
-    let count = 0
+  if (diffDays <= 1) {
+    // 6 4-hour buckets for 1-day range
+    for (let i = 0; i < 6; i++) {
+      const bStart = new Date(periodStart.getTime() + i * 4 * 60 * 60 * 1000)
+      const bEnd = new Date(bStart.getTime() + 4 * 60 * 60 * 1000)
+      const dateLabel = bStart.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 
-    txList.forEach((t) => {
-      if (t.timestamp) {
-        const tDayStr = new Date(t.timestamp).toISOString().split('T')[0]
-        if (tDayStr === dayStr) {
+      let volume = 0
+      let count = 0
+      txList.forEach((t) => {
+        const tTime = new Date(t.timestamp).getTime()
+        if (tTime >= bStart.getTime() && tTime < bEnd.getTime()) {
           volume += Number(t.amount) || 0
           count += 1
         }
-      }
-    })
+      })
+      dailyData.push({ dayStr: `h-${i}`, dateLabel, volume, count })
+    }
+  } else {
+    // Up to 10 buckets for multi-day range
+    const numBuckets = Math.min(diffDays, 10)
+    const daysPerBucket = diffDays / numBuckets
 
-    dailyData.push({ dayStr, dateLabel, volume, count })
+    for (let i = 0; i < numBuckets; i++) {
+      const bStart = new Date(periodStart.getTime() + i * daysPerBucket * 24 * 60 * 60 * 1000)
+      const bEnd = new Date(periodStart.getTime() + (i + 1) * daysPerBucket * 24 * 60 * 60 * 1000)
+      const dateLabel = bStart.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+
+      let volume = 0
+      let count = 0
+      txList.forEach((t) => {
+        const tTime = new Date(t.timestamp).getTime()
+        if (tTime >= bStart.getTime() && tTime <= bEnd.getTime()) {
+          volume += Number(t.amount) || 0
+          count += 1
+        }
+      })
+      dailyData.push({ dayStr: `d-${i}`, dateLabel, volume, count })
+    }
   }
 
   const recentTransactions = [...txList]
@@ -154,7 +222,7 @@ export async function generateReport(reportData = {}) {
   drawMetricBox(margin, currentY, summaryBoxWidth, summaryBoxHeight, 'Total Accounts', totUsers)
   drawMetricBox(margin + summaryBoxWidth + 3, currentY, summaryBoxWidth, summaryBoxHeight, 'Approved Users', appCount)
   drawMetricBox(margin + (summaryBoxWidth + 3) * 2, currentY, summaryBoxWidth, summaryBoxHeight, 'Pending Review', pendCount)
-  drawMetricBox(margin + (summaryBoxWidth + 3) * 3, currentY, summaryBoxWidth, summaryBoxHeight, 'Total Volume', formatShortINR(totalAmountTransferred))
+  drawMetricBox(margin + (summaryBoxWidth + 3) * 3, currentY, summaryBoxWidth, summaryBoxHeight, 'Period Volume', formatShortINR(totalAmountTransferred))
 
   // Financial Metrics Summary
   currentY += summaryBoxHeight + 8
@@ -166,15 +234,15 @@ export async function generateReport(reportData = {}) {
   currentY += 4
   drawMetricBox(margin, currentY, summaryBoxWidth, summaryBoxHeight, 'Total Transactions', totalTxCount)
   drawMetricBox(margin + summaryBoxWidth + 3, currentY, summaryBoxWidth, summaryBoxHeight, 'Avg Transfer Value', formatShortINR(avgTxAmount))
-  drawMetricBox(margin + (summaryBoxWidth + 3) * 2, currentY, summaryBoxWidth, summaryBoxHeight, '7-Day Activity', `${txInLast7Days} txns`)
+  drawMetricBox(margin + (summaryBoxWidth + 3) * 2, currentY, summaryBoxWidth, summaryBoxHeight, 'Period Activity', `${totalTxCount} txns`)
   drawMetricBox(margin + (summaryBoxWidth + 3) * 3, currentY, summaryBoxWidth, summaryBoxHeight, 'Rejected Accounts', rejCount)
 
-  // 7-Day Transaction Volume & Daily Count Chart
+  // Transaction Volume & Activity Trend Chart
   currentY += summaryBoxHeight + 10
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(10)
   doc.setTextColor(30, 41, 59)
-  doc.text('7-Day Transaction Volume & Activity Trend', margin, currentY)
+  doc.text(chartSectionTitle, margin, currentY)
 
   // Chart Container
   currentY += 4
@@ -200,7 +268,7 @@ export async function generateReport(reportData = {}) {
   doc.setTextColor(71, 85, 105)
   doc.text('Volume (INR)', margin + 2, currentY + 8)
 
-  doc.text('Date (Last 7 Days)', pageWidth - margin - 28, currentY + chartOuterH - 3)
+  doc.text('Date (Selected Period)', pageWidth - margin - 32, currentY + chartOuterH - 3)
 
   // Chart Legend
   doc.setFillColor(30, 41, 59)
@@ -240,7 +308,7 @@ export async function generateReport(reportData = {}) {
 
   // Draw Bars & Data Labels
   const numDays = dailyData.length
-  const slotW = plotWidth / numDays
+  const slotW = plotWidth / (numDays || 1)
   const barW = Math.min(slotW * 0.4, 10)
 
   dailyData.forEach((d, idx) => {
@@ -341,7 +409,7 @@ export async function generateReport(reportData = {}) {
   autoTable(doc, {
     startY: 34,
     head: [['Date & Time', 'Transaction ID', 'Sender Details', 'Receiver Details', 'Amount (INR)', 'Status']],
-    body: tableRows.length > 0 ? tableRows : [['--', '--', 'No transactions recorded', '--', '--', '--']],
+    body: tableRows.length > 0 ? tableRows : [['--', '--', 'No transactions recorded in selected period', '--', '--', '--']],
     margin: { left: margin, right: margin },
     theme: 'plain',
     headStyles: {

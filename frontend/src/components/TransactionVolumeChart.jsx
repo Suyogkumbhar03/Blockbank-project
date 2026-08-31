@@ -1,13 +1,57 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import api from '../services/api'
 
-export default function TransactionVolumeChart() {
-  const [chartRange, setChartRange] = useState('1D') // '1D' | '1W' | '1M'
+export default function TransactionVolumeChart({ period, onChangePeriod }) {
+  const [internalRange, setInternalRange] = useState('1D')
+  const activePeriod = period !== undefined ? period : internalRange
+
+  // Helper date format YYYY-MM-DD
+  const getTodayStr = () => new Date().toISOString().split('T')[0]
+  const getSevenDaysAgoStr = () => new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+  const isCustomActive = typeof activePeriod === 'object' && activePeriod?.custom
+  const activePeriodKey = isCustomActive ? 'Custom' : activePeriod
+
+  const [customStartDate, setCustomStartDate] = useState(
+    isCustomActive ? activePeriod.startDate : getSevenDaysAgoStr()
+  )
+  const [customEndDate, setCustomEndDate] = useState(
+    isCustomActive ? activePeriod.endDate : getTodayStr()
+  )
+  const [showCustomPicker, setShowCustomPicker] = useState(isCustomActive)
+
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [hoveredPoint, setHoveredPoint] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(new Date())
   const containerRef = useRef(null)
+
+  const handlePeriodChange = (newPeriod) => {
+    if (onChangePeriod) {
+      onChangePeriod(newPeriod)
+    } else {
+      setInternalRange(newPeriod)
+    }
+  }
+
+  const handleRangeClick = (range) => {
+    if (range === 'Custom') {
+      setShowCustomPicker(true)
+      const newCustom = { custom: true, startDate: customStartDate, endDate: customEndDate }
+      handlePeriodChange(newCustom)
+    } else {
+      setShowCustomPicker(false)
+      handlePeriodChange(range)
+    }
+  }
+
+  const handleCustomDateChange = (newStart, newEnd) => {
+    setCustomStartDate(newStart)
+    setCustomEndDate(newEnd)
+    if (newStart && newEnd) {
+      handlePeriodChange({ custom: true, startDate: newStart, endDate: newEnd })
+    }
+  }
 
   // Fetch transactions from backend
   const fetchTransactions = async (silent = false) => {
@@ -38,12 +82,12 @@ export default function TransactionVolumeChart() {
     return () => clearInterval(interval)
   }, [])
 
-  // Aggregate volume based on chartRange
+  // Aggregate volume based on activePeriod
   const chartData = useMemo(() => {
     const now = new Date()
     let buckets = []
 
-    if (chartRange === '1D') {
+    if (activePeriodKey === '1D') {
       // 24 hourly buckets for the last 24 hours
       for (let i = 23; i >= 0; i--) {
         const start = new Date(now.getTime() - i * 60 * 60 * 1000)
@@ -66,7 +110,7 @@ export default function TransactionVolumeChart() {
           count: 0
         })
       }
-    } else if (chartRange === '1W') {
+    } else if (activePeriodKey === '1W') {
       // 7 daily buckets for the last 7 days
       for (let i = 6; i >= 0; i--) {
         const start = new Date(now)
@@ -86,7 +130,7 @@ export default function TransactionVolumeChart() {
           count: 0
         })
       }
-    } else if (chartRange === '1M') {
+    } else if (activePeriodKey === '1M') {
       // 15 2-day buckets for the last 30 days
       for (let i = 14; i >= 0; i--) {
         const start = new Date(now)
@@ -106,6 +150,65 @@ export default function TransactionVolumeChart() {
           volume: 0,
           count: 0
         })
+      }
+    } else if (isCustomActive || activePeriodKey === 'Custom') {
+      let startD = new Date(customStartDate + 'T00:00:00')
+      let endD = new Date(customEndDate + 'T23:59:59.999')
+
+      if (isNaN(startD.getTime())) startD = new Date(getSevenDaysAgoStr() + 'T00:00:00')
+      if (isNaN(endD.getTime())) endD = new Date(getTodayStr() + 'T23:59:59.999')
+
+      if (startD.getTime() > endD.getTime()) {
+        const temp = startD
+        startD = endD
+        endD = temp
+      }
+
+      const diffMs = endD.getTime() - startD.getTime()
+      const diffDays = Math.max(1, Math.round(diffMs / (24 * 60 * 60 * 1000)))
+
+      if (diffDays <= 1) {
+        // Hourly buckets for 1 day
+        for (let i = 0; i < 24; i++) {
+          const bStart = new Date(startD)
+          bStart.setHours(i, 0, 0, 0)
+          const bEnd = new Date(bStart.getTime() + 60 * 60 * 1000)
+
+          const label = bStart.toLocaleTimeString('en-IN', {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+          })
+
+          buckets.push({
+            start: bStart,
+            end: bEnd,
+            label: (i % 4 === 0 || i === 23) ? label : '',
+            fullLabel: `${bStart.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}, ${label}`,
+            volume: 0,
+            count: 0
+          })
+        }
+      } else {
+        // Daily buckets for multi-day custom range
+        const step = Math.ceil(diffDays / 10)
+        for (let i = 0; i < diffDays; i++) {
+          const bStart = new Date(startD.getTime() + i * 24 * 60 * 60 * 1000)
+          bStart.setHours(0, 0, 0, 0)
+          const bEnd = new Date(bStart)
+          bEnd.setHours(23, 59, 59, 999)
+
+          const label = bStart.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })
+
+          buckets.push({
+            start: bStart,
+            end: bEnd,
+            label: (i % step === 0 || i === diffDays - 1) ? label : '',
+            fullLabel: bStart.toLocaleDateString('en-IN', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }),
+            volume: 0,
+            count: 0
+          })
+        }
       }
     }
 
@@ -131,7 +234,7 @@ export default function TransactionVolumeChart() {
       totalPeriodVolume,
       maxVolume
     }
-  }, [transactions, chartRange])
+  }, [transactions, activePeriodKey, isCustomActive, customStartDate, customEndDate])
 
   // Dimensions & Padding for SVG to guarantee rightmost point is 100% visible
   const width = 1000
@@ -194,23 +297,57 @@ export default function TransactionVolumeChart() {
           </p>
         </div>
 
-        {/* Controls: Range selector */}
-        <div className="flex items-center gap-4">
+        {/* Controls: Range selector + Custom popover */}
+        <div className="relative">
           <div className="flex bg-surface-container rounded-lg p-1">
-            {['1D', '1W', '1M'].map((range) => (
-              <button
-                key={range}
-                onClick={() => setChartRange(range)}
-                className={`px-3.5 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
-                  chartRange === range
-                    ? 'bg-surface-container-lowest shadow-sm text-on-surface'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                {range}
-              </button>
-            ))}
+            {['1D', '1W', '1M', 'Custom'].map((range) => {
+              const isSelected = range === 'Custom' ? isCustomActive : (activePeriodKey === range && !isCustomActive)
+              return (
+                <button
+                  key={range}
+                  onClick={() => handleRangeClick(range)}
+                  className={`px-3.5 py-1.5 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-surface-container-lowest shadow-sm text-on-surface'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  {range}
+                </button>
+              )
+            })}
           </div>
+
+          {/* Custom Date Range Picker Popover */}
+          {showCustomPicker && (
+            <div className="absolute right-0 top-full mt-2 z-30 bg-surface-container-lowest border border-outline-variant rounded-xl p-3 shadow-lg flex flex-col sm:flex-row items-center gap-3 text-xs font-sans text-on-surface">
+              <div className="flex items-center gap-1.5">
+                <span className="text-on-surface-variant font-medium text-[11px]">From:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => handleCustomDateChange(e.target.value, customEndDate)}
+                  className="bg-surface-container border border-outline-variant rounded px-2.5 py-1 text-xs outline-none focus:border-primary font-mono text-on-surface"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-on-surface-variant font-medium text-[11px]">To:</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => handleCustomDateChange(customStartDate, e.target.value)}
+                  className="bg-surface-container border border-outline-variant rounded px-2.5 py-1 text-xs outline-none focus:border-primary font-mono text-on-surface"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCustomPicker(false)}
+                className="px-2.5 py-1 text-[11px] font-semibold bg-surface-container hover:bg-surface-container-high border border-outline-variant rounded text-on-surface cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

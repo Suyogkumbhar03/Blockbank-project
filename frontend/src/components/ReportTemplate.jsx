@@ -5,15 +5,14 @@ import React from 'react'
  * Clean, human corporate bank statement layout.
  */
 
-// FUTURE SECTIONS: Blockchain Integrity Summary and Fraud & Security Summary will be added here once those modules are implemented — extend this component, don't rewrite it, when that data becomes available.
-
 export default function ReportTemplate({
   adminName = 'Admin',
   totalUsers = 0,
   approvedUsers = 0,
   pendingUsers = 0,
   rejectedUsers = 0,
-  allTransactions = []
+  allTransactions = [],
+  chartPeriod = '1D'
 }) {
   const generatedAt = new Date()
   const formattedDateStr =
@@ -35,44 +34,109 @@ export default function ReportTemplate({
   const rejCount = Array.isArray(rejectedUsers) ? rejectedUsers.length : Number(rejectedUsers) || 0
   const totUsers = Number(totalUsers) || appCount + pendCount + rejCount
 
-  // Normalize transactions list
-  const txList = Array.isArray(allTransactions) ? allTransactions : []
+  // Determine period bounds and chart title based on chartPeriod
+  let periodStart
+  let periodEnd = generatedAt
+  let chartSectionTitle = 'Transaction Volume & Activity Trend'
+
+  const formatShortDate = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  const formatFullDate = (d) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+
+  const isCustomPeriod = typeof chartPeriod === 'object' && chartPeriod?.custom
+  const periodKey = isCustomPeriod ? 'Custom' : chartPeriod
+
+  if (periodKey === '1D') {
+    periodStart = new Date(generatedAt.getTime() - 24 * 60 * 60 * 1000)
+    chartSectionTitle = 'Transaction Volume — Last 24 Hours'
+  } else if (periodKey === '1W') {
+    periodStart = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000)
+    chartSectionTitle = 'Transaction Volume — Last 7 Days'
+  } else if (periodKey === '1M') {
+    periodStart = new Date(generatedAt.getTime() - 30 * 24 * 60 * 60 * 1000)
+    chartSectionTitle = 'Transaction Volume — Last 30 Days'
+  } else if (isCustomPeriod || periodKey === 'Custom') {
+    let sD = new Date((chartPeriod.startDate || '') + 'T00:00:00')
+    let eD = new Date((chartPeriod.endDate || '') + 'T23:59:59.999')
+    if (isNaN(sD.getTime())) sD = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000)
+    if (isNaN(eD.getTime())) eD = generatedAt
+
+    if (sD.getTime() > eD.getTime()) {
+      const temp = sD
+      sD = eD
+      eD = temp
+    }
+    periodStart = sD
+    periodEnd = eD
+
+    if (periodStart.getFullYear() === periodEnd.getFullYear()) {
+      chartSectionTitle = `Transaction Volume — ${formatShortDate(periodStart)} to ${formatFullDate(periodEnd)}`
+    } else {
+      chartSectionTitle = `Transaction Volume — ${formatFullDate(periodStart)} to ${formatFullDate(periodEnd)}`
+    }
+  } else {
+    periodStart = new Date(generatedAt.getTime() - 24 * 60 * 60 * 1000)
+    chartSectionTitle = 'Transaction Volume — Last 24 Hours'
+  }
+
+  // Filter transactions
+  const rawTxList = Array.isArray(allTransactions) ? allTransactions : []
+  const txList = rawTxList.filter((t) => {
+    if (!t.timestamp) return false
+    const tTime = new Date(t.timestamp).getTime()
+    return tTime >= periodStart.getTime() && tTime <= periodEnd.getTime()
+  })
+
   const totalTxCount = txList.length
   const totalAmountTransferred = txList.reduce((acc, t) => acc + (Number(t.amount) || 0), 0)
   const avgTxAmount = totalTxCount > 0 ? totalAmountTransferred / totalTxCount : 0
 
-  const sevenDaysAgo = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000)
-  const txInLast7Days = txList.filter((t) => {
-    if (!t.timestamp) return false
-    return new Date(t.timestamp) >= sevenDaysAgo
-  }).length
-
-  // Calculate 7-Day Daily Volume & Count Data for Chart
+  // Calculate Volume & Count Data for Chart
   const dailyData = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(generatedAt)
-    d.setDate(d.getDate() - i)
-    const dayStr = d.toISOString().split('T')[0]
-    const label = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+  const diffMs = periodEnd.getTime() - periodStart.getTime()
+  const diffDays = Math.max(1, Math.round(diffMs / (24 * 60 * 60 * 1000)))
 
-    let volume = 0
-    let count = 0
+  if (diffDays <= 1) {
+    for (let i = 0; i < 6; i++) {
+      const bStart = new Date(periodStart.getTime() + i * 4 * 60 * 60 * 1000)
+      const bEnd = new Date(bStart.getTime() + 4 * 60 * 60 * 1000)
+      const label = bStart.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })
 
-    txList.forEach((t) => {
-      if (t.timestamp) {
-        const tDayStr = new Date(t.timestamp).toISOString().split('T')[0]
-        if (tDayStr === dayStr) {
+      let volume = 0
+      let count = 0
+      txList.forEach((t) => {
+        const tTime = new Date(t.timestamp).getTime()
+        if (tTime >= bStart.getTime() && tTime < bEnd.getTime()) {
           volume += Number(t.amount) || 0
           count += 1
         }
-      }
-    })
+      })
+      dailyData.push({ dayStr: `h-${i}`, label, volume, count })
+    }
+  } else {
+    const numBuckets = Math.min(diffDays, 10)
+    const daysPerBucket = diffDays / numBuckets
 
-    dailyData.push({ dayStr, label, volume, count })
+    for (let i = 0; i < numBuckets; i++) {
+      const bStart = new Date(periodStart.getTime() + i * daysPerBucket * 24 * 60 * 60 * 1000)
+      const bEnd = new Date(periodStart.getTime() + (i + 1) * daysPerBucket * 24 * 60 * 60 * 1000)
+      const label = bStart.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+
+      let volume = 0
+      let count = 0
+      txList.forEach((t) => {
+        const tTime = new Date(t.timestamp).getTime()
+        if (tTime >= bStart.getTime() && tTime <= bEnd.getTime()) {
+          volume += Number(t.amount) || 0
+          count += 1
+        }
+      })
+      dailyData.push({ dayStr: `d-${i}`, label, volume, count })
+    }
   }
+
   const maxVol = Math.max(...dailyData.map((d) => d.volume), 1000)
 
-  // Top 20 recent transactions
+  // Top 20 recent transactions in period
   const recentTransactions = [...txList]
     .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
     .slice(0, 20)
@@ -161,7 +225,7 @@ export default function ReportTemplate({
           </div>
 
           <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '12px' }}>
-            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Total System Volume</div>
+            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Period Volume</div>
             <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>{formatShortINR(totalAmountTransferred)}</div>
           </div>
         </div>
@@ -185,8 +249,8 @@ export default function ReportTemplate({
           </div>
 
           <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '12px' }}>
-            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>7-Day Activity</div>
-            <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>{txInLast7Days} txns</div>
+            <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', marginBottom: '4px' }}>Period Activity</div>
+            <div style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b' }}>{totalTxCount} txns</div>
           </div>
 
           <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '4px', padding: '12px' }}>
@@ -196,11 +260,11 @@ export default function ReportTemplate({
         </div>
       </div>
 
-      {/* 7-Day Transaction Volume & Daily Count Chart */}
+      {/* Transaction Volume Chart */}
       <div style={{ marginBottom: '28px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <h2 style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', margin: 0 }}>
-            7-Day Transaction Volume & Activity Trend
+            {chartSectionTitle}
           </h2>
           <div style={{ fontSize: '11px', color: '#64748b' }}>
             <span style={{ color: '#1e293b', fontWeight: 'bold' }}>■ Volume (INR)</span> &nbsp;|&nbsp; <span style={{ color: '#0d9488', fontWeight: 'bold' }}>• Txn Count</span>
@@ -237,9 +301,9 @@ export default function ReportTemplate({
             })}
           </div>
 
-          <div style={{ display: 'flex', justifyBetween: 'space-between', fontSize: '10px', color: '#64748b', marginTop: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b', marginTop: '8px' }}>
             <span>Y-Axis: Volume (INR)</span>
-            <span style={{ marginLeft: 'auto' }}>X-Axis: Date (Last 7 Days)</span>
+            <span style={{ marginLeft: 'auto' }}>X-Axis: Date (Selected Period)</span>
           </div>
         </div>
       </div>
@@ -266,7 +330,7 @@ export default function ReportTemplate({
               {recentTransactions.length === 0 ? (
                 <tr>
                   <td colSpan="6" style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
-                    No transactions recorded in the system.
+                    No transactions recorded in selected period.
                   </td>
                 </tr>
               ) : (
