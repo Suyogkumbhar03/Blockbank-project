@@ -14,6 +14,7 @@ function Dashboard() {
     paymentId: '',
     balance: 0,
     profilePhoto: '',
+    isFrozen: false,
   })
 
   const [transactions, setTransactions] = useState([])
@@ -55,6 +56,7 @@ function Dashboard() {
             accountNumber: res.data.accountNumber || stored.accountNumber || '',
             paymentId: res.data.paymentId || stored.paymentId || '',
             balance: res.data.balance !== undefined ? res.data.balance : (stored.balance || 0),
+            isFrozen: res.data.isFrozen !== undefined ? res.data.isFrozen : (stored.isFrozen || false),
           }
           setUser(updatedUser)
           localStorage.setItem('user', JSON.stringify(updatedUser))
@@ -180,42 +182,74 @@ function Dashboard() {
         <main className="flex-1 mt-16 p-margin-desktop bg-background overflow-y-auto">
           <div className="max-w-[1280px] mx-auto flex flex-col gap-xl">
             {/* Welcome Section */}
-            <section className="flex justify-between items-end">
-              <div>
-                <h2 className="text-3xl font-semibold text-on-surface mb-xs">
-                  Welcome back, {user.name}.
-                </h2>
-                <p className="text-base text-on-surface-variant">
-                  Here is your daily financial summary.
-                </p>
-                {user.accountNumber && (
-                  <div className="flex flex-wrap items-center gap-4 mt-2 text-xs font-mono text-on-surface-variant">
-                    <span>Account No: <strong>{user.accountNumber}</strong></span>
-                    {user.paymentId && (
-                      <span className="inline-flex items-center">
-                        Payment ID: <strong>{user.paymentId}</strong>
-                        <button
-                          type="button"
-                          onClick={handleCopyPaymentId}
-                          title={copied ? "Copied!" : "Copy Payment ID"}
-                          className="ml-1 p-0.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded cursor-pointer inline-flex items-center justify-center transition-colors active:scale-90"
-                        >
-                          {copied ? (
-                            <svg className="w-2.5 h-2.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          ) : (
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
-                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                            </svg>
-                          )}
-                        </button>
+            <section className="flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-3xl font-semibold text-on-surface mb-xs">
+                      Welcome back, {user.name}.
+                    </h2>
+                    {Boolean(user.isFrozen) && (
+                      <span className="px-3 py-1 bg-red-100 text-red-700 border border-red-300 text-xs font-bold rounded-full flex items-center gap-1.5 shrink-0 animate-pulse">
+                        <span className="material-symbols-outlined text-sm text-red-600">ac_unit</span>
+                        Account Frozen
                       </span>
                     )}
                   </div>
-                )}
+                  <p className="text-base text-on-surface-variant">
+                    Here is your daily financial summary.
+                  </p>
+                  {user.accountNumber && (
+                    <div className="flex flex-wrap items-center gap-4 mt-2 text-xs font-mono text-on-surface-variant">
+                      <span>Account No: <strong>{user.accountNumber}</strong></span>
+                      {user.paymentId && (
+                        <span className="inline-flex items-center">
+                          Payment ID: <strong>{user.paymentId}</strong>
+                          <button
+                            type="button"
+                            onClick={handleCopyPaymentId}
+                            title={copied ? "Copied!" : "Copy Payment ID"}
+                            className="ml-1 p-0.5 text-on-surface-variant hover:text-on-surface hover:bg-surface-container rounded cursor-pointer inline-flex items-center justify-center transition-colors active:scale-90"
+                          >
+                            {copied ? (
+                              <svg className="w-2.5 h-2.5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            ) : (
+                              <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                              </svg>
+                            )}
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Full-width notification banner for Frozen Account */}
+              {Boolean(user.isFrozen) && (
+                <div className="w-full bg-red-50 border border-red-200 text-red-800 px-5 py-3.5 rounded-2xl shadow-xs flex items-center gap-3.5 animate-pulse">
+                  <div className="w-10 h-10 rounded-xl bg-red-100 border border-red-200 flex items-center justify-center text-red-600 shrink-0">
+                    <span className="material-symbols-outlined text-2xl">ac_unit</span>
+                  </div>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between flex-1 gap-2">
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-red-800 block">
+                        Account Status: Frozen
+                      </span>
+                      <p className="text-xs font-semibold text-red-700 mt-0.5">
+                        Your account is freeze. Outgoing transactions and transfers are disabled by BlockBank Admin.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase px-2.5 py-1 bg-red-200/80 text-red-900 rounded-md border border-red-300 shrink-0 self-start md:self-auto">
+                      Restricted Account
+                    </span>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Top Row: Balance & Quick Actions */}

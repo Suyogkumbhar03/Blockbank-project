@@ -26,7 +26,7 @@ export default function TransferMoney() {
   const [userBalance, setUserBalance] = useState(0)
   const [userName, setUserName] = useState('User')
   const [userPaymentId, setUserPaymentId] = useState('')
-  const [user, setUser] = useState({ name: 'User', profilePhoto: '' })
+  const [user, setUser] = useState({ name: 'User', profilePhoto: '', isFrozen: false })
 
   // Processing & Error states for transfer
   const [isSending, setIsSending] = useState(false)
@@ -64,6 +64,7 @@ export default function TransferMoney() {
             accountNumber: res.data.accountNumber || stored.accountNumber || '',
             paymentId: res.data.paymentId || stored.paymentId || '',
             balance: res.data.balance !== undefined ? res.data.balance : (stored.balance || 0),
+            isFrozen: res.data.isFrozen !== undefined ? res.data.isFrozen : (stored.isFrozen || false),
           }
           setUser(updatedUser)
           if (res.data.balance !== undefined) setUserBalance(res.data.balance)
@@ -241,8 +242,25 @@ export default function TransferMoney() {
 
         {/* Page canvas */}
         <main className="flex-1 mt-16 flex items-center justify-center min-h-[calc(100vh-4rem)] bg-surface-container p-6">
-          {/* ── Transfer card ── */}
-          <div className="w-full max-w-[540px] bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.10)] relative min-h-[500px]">
+          {Boolean(user.isFrozen) ? (
+            <div className="w-full max-w-[540px] bg-white border border-red-200 rounded-2xl p-8 flex flex-col items-center text-center shadow-[0_8px_32px_rgba(239,68,68,0.08)] animate-fadeIn">
+              <div className="w-16 h-16 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600 mb-4 shadow-inner shrink-0">
+                <span className="material-symbols-outlined text-3xl">ac_unit</span>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2 w-full text-center">
+                Your account is freeze
+              </h2>
+              <p className="w-full text-sm text-gray-600 leading-relaxed mb-6 px-4 text-center">
+                Your account has been frozen by BlockBank Admin. You cannot initiate any money transfers at this time. Please contact support if you believe this is an error.
+              </p>
+              <div className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-xs font-semibold text-red-700">
+                <span className="material-symbols-outlined text-base">block</span>
+                Your account is freeze
+              </div>
+            </div>
+          ) : (
+            /* ── Transfer card ── */
+            <div className="w-full max-w-[540px] bg-white border border-gray-200 rounded-2xl flex flex-col overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.10)] relative min-h-[500px]">
 
             {/* TASK 7: Sending Animation Overlay with Lottie */}
             <AnimatePresence>
@@ -530,6 +548,7 @@ export default function TransferMoney() {
               </button>
             </div>
           </div>
+          )}
         </main>
       </div>
 
