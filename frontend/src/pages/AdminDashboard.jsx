@@ -6,6 +6,7 @@ import AdminTransactionsView from '../components/AdminTransactionsView'
 import TransactionVolumeChart from '../components/TransactionVolumeChart'
 import NotificationBell from '../components/NotificationBell'
 import { generateReport } from '../utils/generateReport.jsx'
+import PaymentBlockchainFlow from '../components/blockchain/PaymentBlockchainFlow'
 
 function AdminDashboard() {
   const [activeTab, setActiveTabState] = useState(() => {
@@ -33,6 +34,7 @@ function AdminDashboard() {
 
   // Payment Blockchain state
   const [explorerSubTab, setExplorerSubTab] = useState('admin') // 'admin' | 'payments'
+  const [paymentViewTab, setPaymentViewTab] = useState('table') // 'table' | 'visual'
   const [paymentChain, setPaymentChain] = useState([])
   const [loadingPaymentChain, setLoadingPaymentChain] = useState(false)
 
@@ -810,77 +812,122 @@ function AdminDashboard() {
 
               {/* View 2: Payments Blockchain */}
               {explorerSubTab === 'payments' && (
-                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-                  <div className="p-4 bg-surface-container-low border-b border-outline-variant flex items-center justify-between">
-                    <h3 className="font-bold text-sm text-on-surface">Payment Transaction Block Ledger</h3>
-                    <span className="text-xs text-on-surface-variant font-mono">{paymentChain.length} Total Blocks</span>
-                  </div>
-                  {loadingPaymentChain ? (
-                    <div className="p-12 text-center flex flex-col items-center justify-center gap-3">
-                      <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                      <p className="text-sm text-on-surface-variant font-medium">Loading payment blockchain...</p>
+                <div className="flex flex-col gap-4">
+                  {/* Secondary Sub-Tab Switcher */}
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex bg-surface-container rounded-lg p-1 w-fit border border-outline-variant/60">
+                      <button
+                        onClick={() => setPaymentViewTab('table')}
+                        className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          paymentViewTab === 'table'
+                            ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">table_chart</span>
+                        Table
+                      </button>
+                      <button
+                        onClick={() => setPaymentViewTab('visual')}
+                        className={`px-3.5 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                          paymentViewTab === 'visual'
+                            ? 'bg-surface-container-lowest text-on-surface shadow-sm'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[16px]">hub</span>
+                        Visual Blockchain
+                      </button>
                     </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-surface-container border-b border-outline-variant">
-                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
-                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Transaction ID</th>
-                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Sender</th>
-                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Receiver</th>
-                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Amount</th>
-                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Timestamp</th>
-                            <th className="py-4 px-6 font-semibold text-sm text-on-surface">Hash</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {paymentChain.length > 0 ? (
-                            paymentChain.map((block) => {
-                              const truncatedTxId = block.transactionId
-                                ? (block.transactionId.length > 14 ? `${block.transactionId.substring(0, 14)}...` : block.transactionId)
-                                : 'N/A'
-                              const truncatedHash = block.hash
-                                ? `${block.hash.substring(0, 16)}...`
-                                : 'N/A'
+                  </div>
 
-                              return (
-                                <tr
-                                  key={block._id || block.index}
-                                  className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
-                                >
-                                  <td className="py-4 px-6 text-sm font-bold font-mono text-primary">#{block.index}</td>
-                                  <td className="py-4 px-6 text-sm font-mono font-semibold text-on-surface" title={block.transactionId}>
-                                    {truncatedTxId}
-                                  </td>
-                                  <td className="py-4 px-6 text-sm">
-                                    <div className="font-bold text-on-surface">{block.senderName}</div>
-                                    <div className="text-xs text-on-surface-variant font-mono">{block.senderPaymentId}</div>
-                                  </td>
-                                  <td className="py-4 px-6 text-sm">
-                                    <div className="font-bold text-on-surface">{block.receiverName}</div>
-                                    <div className="text-xs text-on-surface-variant font-mono">{block.receiverPaymentId}</div>
-                                  </td>
-                                  <td className="py-4 px-6 text-sm font-mono font-bold text-emerald-600">
-                                    ₹{(block.amount || 0).toLocaleString('en-IN')}
-                                  </td>
-                                  <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">{formatBlockTime(block.timestamp)}</td>
-                                  <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.hash}>
-                                    {truncatedHash}
+                  {/* Option A: Table View */}
+                  {paymentViewTab === 'table' && (
+                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+                      <div className="p-4 bg-surface-container-low border-b border-outline-variant flex items-center justify-between">
+                        <h3 className="font-bold text-sm text-on-surface">Payment Transaction Block Ledger</h3>
+                        <span className="text-xs text-on-surface-variant font-mono">{paymentChain.length} Total Blocks</span>
+                      </div>
+                      {loadingPaymentChain ? (
+                        <div className="p-12 text-center flex flex-col items-center justify-center gap-3">
+                          <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+                          <p className="text-sm text-on-surface-variant font-medium">Loading payment blockchain...</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto w-full">
+                          <table className="w-full min-w-[1000px] text-left border-collapse whitespace-nowrap">
+                            <thead>
+                              <tr className="bg-surface-container border-b border-outline-variant">
+                                <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
+                                <th className="py-4 px-6 font-semibold text-sm text-on-surface">Transaction ID</th>
+                                <th className="py-4 px-6 font-semibold text-sm text-on-surface">Sender</th>
+                                <th className="py-4 px-6 font-semibold text-sm text-on-surface">Receiver</th>
+                                <th className="py-4 px-6 font-semibold text-sm text-on-surface">Amount</th>
+                                <th className="py-4 px-6 font-semibold text-sm text-on-surface">Timestamp</th>
+                                <th className="py-4 px-6 font-semibold text-sm text-on-surface">Previous Hash</th>
+                                <th className="py-4 px-6 font-semibold text-sm text-on-surface">Hash</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {paymentChain.length > 0 ? (
+                                paymentChain.map((block) => {
+                                  const truncatedTxId = block.transactionId
+                                    ? (block.transactionId.length > 14 ? `${block.transactionId.substring(0, 14)}...` : block.transactionId)
+                                    : 'N/A'
+                                  const truncatedPrevHash = block.previousHash
+                                    ? `${block.previousHash.substring(0, 16)}...`
+                                    : (block.index === 0 ? '0 (Genesis)' : 'N/A')
+                                  const truncatedHash = block.hash
+                                    ? `${block.hash.substring(0, 16)}...`
+                                    : 'N/A'
+
+                                  return (
+                                    <tr
+                                      key={block._id || block.index}
+                                      className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                                    >
+                                      <td className="py-4 px-6 text-sm font-bold font-mono text-primary">#{block.index}</td>
+                                      <td className="py-4 px-6 text-sm font-mono font-semibold text-on-surface" title={block.transactionId}>
+                                        {truncatedTxId}
+                                      </td>
+                                      <td className="py-4 px-6 text-sm">
+                                        <div className="font-bold text-on-surface">{block.senderName}</div>
+                                        <div className="text-xs text-on-surface-variant font-mono">{block.senderPaymentId}</div>
+                                      </td>
+                                      <td className="py-4 px-6 text-sm">
+                                        <div className="font-bold text-on-surface">{block.receiverName}</div>
+                                        <div className="text-xs text-on-surface-variant font-mono">{block.receiverPaymentId}</div>
+                                      </td>
+                                      <td className="py-4 px-6 text-sm font-mono font-bold text-emerald-600">
+                                        ₹{(block.amount || 0).toLocaleString('en-IN')}
+                                      </td>
+                                      <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">{formatBlockTime(block.timestamp)}</td>
+                                      <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.previousHash || '0'}>
+                                        {truncatedPrevHash}
+                                      </td>
+                                      <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.hash}>
+                                        {truncatedHash}
+                                      </td>
+                                    </tr>
+                                  )
+                                })
+                              ) : (
+                                <tr>
+                                  <td colSpan="8" className="py-8 text-center text-on-surface-variant text-sm">
+                                    No payment blocks recorded in blockchain yet.
                                   </td>
                                 </tr>
-                              )
-                            })
-                          ) : (
-                            <tr>
-                              <td colSpan="7" className="py-8 text-center text-on-surface-variant text-sm">
-                                No payment blocks recorded in blockchain yet.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
+                  )}
+
+                  {/* Option B: Visual Blockchain View */}
+                  {paymentViewTab === 'visual' && (
+                    <PaymentBlockchainFlow paymentChain={paymentChain} />
                   )}
                 </div>
               )}

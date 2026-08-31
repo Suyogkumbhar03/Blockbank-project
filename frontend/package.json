@@ -17,6 +17,7 @@
     "@mui/material": "^9.2.0",
     "@mui/x-charts": "^9.10.1",
     "@tailwindcss/vite": "^4.3.3",
+    "@xyflow/react": "^12.11.5",
     "axios": "^1.18.1",
     "chart.js": "^4.5.1",
     "framer-motion": "^12.42.2",
