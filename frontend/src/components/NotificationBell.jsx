@@ -76,6 +76,8 @@ function NotificationBell() {
     switch (type) {
       case 'money_received':
         return 'payments';
+      case 'money_sent':
+        return 'send';
       case 'account_approved':
         return 'verified_user';
       case 'pin_unlocked':

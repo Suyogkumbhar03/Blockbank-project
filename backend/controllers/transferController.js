@@ -188,17 +188,47 @@ const transferMoney = async (req, res) => {
             return res.status(400).json({ message: 'Amount must be a positive number' });
         }
 
-        // 5. Check sender has sufficient balance
+        // 5. Check sender has sufficient balance (pre-check)
         if (sender.balance < numericAmount) {
             return res.status(400).json({ message: 'Insufficient balance' });
         }
 
-        // 6. Perform balance transfer
-        sender.balance -= numericAmount;
-        receiver.balance += numericAmount;
+        // 6. ATOMIC BALANCE TRANSFER (Isolation & Concurrency Protection)
+        // Step 6a: Deduct balance from sender atomically ONLY if sender balance >= numericAmount
+        const updatedSender = await User.findOneAndUpdate(
+            {
+                _id: sender._id,
+                balance: { $gte: numericAmount },
+                isFrozen: false,
+                status: 'approved'
+            },
+            { $inc: { balance: -numericAmount } },
+            { new: true }
+        );
 
-        await sender.save({ validateModifiedOnly: true });
-        await receiver.save({ validateModifiedOnly: true });
+        if (!updatedSender) {
+            return res.status(400).json({ message: 'Insufficient balance or account is inactive/frozen' });
+        }
+
+        // Step 6b: Add balance to receiver atomically
+        const updatedReceiver = await User.findOneAndUpdate(
+            {
+                _id: receiver._id,
+                isFrozen: false,
+                status: 'approved'
+            },
+            { $inc: { balance: numericAmount } },
+            { new: true }
+        );
+
+        if (!updatedReceiver) {
+            // Revert sender balance deduction if receiver credit failed
+            await User.updateOne(
+                { _id: sender._id },
+                { $inc: { balance: numericAmount } }
+            );
+            return res.status(400).json({ message: 'Recipient account is frozen or inactive. Transfer cancelled.' });
+        }
 
         // 7. Generate unique transaction ID & create Transaction record
         const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -232,22 +262,29 @@ const transferMoney = async (req, res) => {
             timestamp: transaction.timestamp
         });
 
-        // Trigger receiver notification
+        // Trigger notifications for both receiver and sender
         try {
-            const notification = new Notification({
+            const receiverNotif = new Notification({
                 userId: receiver._id,
                 message: `You received ₹${numericAmount} from ${sender.name}`,
                 type: 'money_received'
             });
-            await notification.save();
+            await receiverNotif.save();
+
+            const senderNotif = new Notification({
+                userId: sender._id,
+                message: `You sent ₹${numericAmount} to ${receiver.name}`,
+                type: 'money_sent'
+            });
+            await senderNotif.save();
         } catch (notifErr) {
-            console.error('Failed to create transfer notification for receiver:', notifErr);
+            console.error('Failed to create transfer notification:', notifErr);
         }
 
         return res.status(200).json({
             message: 'Transfer successful',
             transaction,
-            newBalance: sender.balance
+            newBalance: updatedSender.balance
         });
     } catch (error) {
         return res.status(500).json({ message: 'Server error processing transfer', error: error.message });
