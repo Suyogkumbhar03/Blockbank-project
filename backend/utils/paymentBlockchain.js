@@ -3,6 +3,7 @@ const PaymentBlock = require('../models/PaymentBlock');
 
 /**
  * Creates and saves a new PaymentBlock into the payment blockchain ledger.
+ * Signed by Authority Private Key (PoA SHA256 RSA).
  * Wrapped in try/catch to ensure errors never break caller execution (e.g. transfer money flow).
  * 
  * @param {Object} transactionData - Details of the saved transaction
@@ -24,8 +25,23 @@ const addPaymentBlock = async (transactionData) => {
 
         const timestamp = transactionData.timestamp ? new Date(transactionData.timestamp) : new Date();
 
-        // Combine all transaction fields + previousHash into one string
-        const dataToHash = `${index}${transactionData.transactionId}${transactionData.senderPaymentId}${transactionData.receiverPaymentId}${transactionData.senderName}${transactionData.receiverName}${transactionData.amount}${timestamp.toISOString()}${previousHash}`;
+        // Exact field order for PoA data signature:
+        // index + transactionId + senderPaymentId + receiverPaymentId + senderName + receiverName + amount + timestamp (ISO string) + previousHash
+        const dataToSign = `${index}${transactionData.transactionId}${transactionData.senderPaymentId}${transactionData.receiverPaymentId}${transactionData.senderName}${transactionData.receiverName}${transactionData.amount}${timestamp.toISOString()}${previousHash}`;
+
+        // Sign payload with Authority Private Key
+        const privateKey = process.env.AUTHORITY_PRIVATE_KEY;
+        const publicKey = process.env.AUTHORITY_PUBLIC_KEY;
+
+        let signature = 'N/A';
+        if (privateKey) {
+            const signer = crypto.createSign('SHA256');
+            signer.update(dataToSign);
+            signature = signer.sign(privateKey, 'hex');
+        }
+
+        // Include signature in data that gets hashed for the block's hash field
+        const dataToHash = `${dataToSign}${signature}`;
 
         // Compute SHA256 hash
         const hash = crypto.createHash('sha256').update(dataToHash).digest('hex');
@@ -41,6 +57,8 @@ const addPaymentBlock = async (transactionData) => {
             amount: transactionData.amount,
             timestamp,
             previousHash,
+            signature,
+            authorityPublicKey: publicKey || 'N/A',
             hash
         });
 

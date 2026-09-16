@@ -900,6 +900,7 @@ function AdminDashboard() {
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Amount</th>
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Timestamp</th>
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Previous Hash</th>
+                                <th className="py-4 px-6 font-semibold text-sm text-on-surface">Signature</th>
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Hash</th>
                               </tr>
                             </thead>
@@ -912,6 +913,9 @@ function AdminDashboard() {
                                   const truncatedPrevHash = block.previousHash
                                     ? `${block.previousHash.substring(0, 16)}...`
                                     : (block.index === 0 ? '0 (Genesis)' : 'N/A')
+                                  const truncatedSignature = block.signature
+                                    ? `${block.signature.substring(0, 12)}...`
+                                    : 'N/A'
                                   const truncatedHash = block.hash
                                     ? `${block.hash.substring(0, 16)}...`
                                     : 'N/A'
@@ -940,6 +944,9 @@ function AdminDashboard() {
                                       <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.previousHash || '0'}>
                                         {truncatedPrevHash}
                                       </td>
+                                      <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.signature}>
+                                        {truncatedSignature}
+                                      </td>
                                       <td className="py-4 px-6 text-sm font-mono text-on-surface-variant" title={block.hash}>
                                         {truncatedHash}
                                       </td>
@@ -948,7 +955,7 @@ function AdminDashboard() {
                                 })
                               ) : (
                                 <tr>
-                                  <td colSpan="8" className="py-8 text-center text-on-surface-variant text-sm">
+                                  <td colSpan="9" className="py-8 text-center text-on-surface-variant text-sm">
                                     No payment blocks recorded in blockchain yet.
                                   </td>
                                 </tr>

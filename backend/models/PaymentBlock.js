@@ -10,6 +10,8 @@ const paymentBlockSchema = new mongoose.Schema({
     amount: { type: Number, required: true },
     timestamp: { type: Date, default: Date.now },
     previousHash: { type: String, required: true },
+    signature: { type: String, required: true },
+    authorityPublicKey: { type: String, required: true },
     hash: { type: String, required: true }
 });
 
