@@ -860,28 +860,23 @@ function AdminDashboard() {
                     Blockchain Explorer
                   </h1>
                   <p className="text-on-surface-variant">
-                    Inspect immutable ledger blocks for admin actions and payment transactions.
+                    Inspect immutable cryptographic ledger blocks for payment transactions.
                   </p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  {explorerSubTab === 'payments' && (
-                    <button
-                      onClick={handleValidatePaymentChain}
-                      disabled={isValidatingPaymentChain || paymentChain.length === 0}
-                      className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm cursor-pointer disabled:opacity-50"
-                    >
-                      <span className={`material-symbols-outlined text-[18px] ${isValidatingPaymentChain ? 'animate-spin' : ''}`}>
-                        {isValidatingPaymentChain ? 'sync' : 'verified_user'}
-                      </span>
-                      {isValidatingPaymentChain ? 'Validating Chain...' : 'Validate Chain'}
-                    </button>
-                  )}
                   <button
-                    onClick={() => {
-                      if (explorerSubTab === 'admin') fetchBlockchainData()
-                      else fetchPaymentBlockchainData()
-                    }}
+                    onClick={handleValidatePaymentChain}
+                    disabled={isValidatingPaymentChain || paymentChain.length === 0}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-[18px] ${isValidatingPaymentChain ? 'animate-spin' : ''}`}>
+                      {isValidatingPaymentChain ? 'sync' : 'verified_user'}
+                    </span>
+                    {isValidatingPaymentChain ? 'Validating Chain...' : 'Validate Chain'}
+                  </button>
+                  <button
+                    onClick={fetchPaymentBlockchainData}
                     className="flex items-center gap-2 px-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg text-sm font-semibold hover:bg-surface-container transition-colors shadow-sm cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[18px]">refresh</span>
@@ -890,90 +885,8 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Sub-tabs switch */}
-              <div className="flex bg-surface-container rounded-lg p-1 w-fit border border-outline-variant/60">
-                <button
-                  onClick={() => setExplorerSubTab('admin')}
-                  className={`px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                    explorerSubTab === 'admin'
-                      ? 'bg-surface-container-lowest text-on-surface shadow-sm'
-                      : 'text-on-surface-variant hover:text-on-surface'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">admin_panel_settings</span>
-                  Admin Actions ({chain.length})
-                </button>
-                <button
-                  onClick={() => setExplorerSubTab('payments')}
-                  className={`px-4 py-2 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-                    explorerSubTab === 'payments'
-                      ? 'bg-surface-container-lowest text-on-surface shadow-sm'
-                      : 'text-on-surface-variant hover:text-on-surface'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[18px]">payments</span>
-                  Payments ({paymentChain.length})
-                </button>
-              </div>
-
-              {/* View 1: Admin Actions Blockchain */}
-              {explorerSubTab === 'admin' && (
-                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-                  <div className="p-4 bg-surface-container-low border-b border-outline-variant flex items-center justify-between">
-                    <h3 className="font-bold text-sm text-on-surface">Admin Actions Block Ledger</h3>
-                    <span className="text-xs text-on-surface-variant font-mono">{chain.length} Total Blocks</span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse min-w-[850px] whitespace-nowrap">
-                      <thead>
-                        <tr className="bg-surface-container border-b border-outline-variant">
-                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
-                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Action</th>
-                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Type</th>
-                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Performed By</th>
-                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Target User</th>
-                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Timestamp</th>
-                          <th className="py-4 px-6 font-semibold text-sm text-on-surface">Hash</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {chain.length > 0 ? (
-                          chain.map((block) => (
-                            <tr
-                              key={block._id || block.index}
-                              className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
-                            >
-                              <td className="py-4 px-6 text-sm font-bold font-mono text-primary">#{block.index}</td>
-                              <td className="py-4 px-6 text-sm text-on-surface font-medium">{block.action}</td>
-                              <td className="py-4 px-6 text-sm">
-                                <span className="px-2.5 py-0.5 bg-surface-container rounded text-xs font-bold uppercase tracking-wider text-on-surface-variant font-mono">
-                                  {block.actionType}
-                                </span>
-                              </td>
-                              <td className="py-4 px-6 text-sm text-on-surface-variant">{block.performedBy?.name || 'Admin'}</td>
-                              <td className="py-4 px-6 text-sm text-on-surface-variant">{block.targetUserId?.name || 'N/A'}</td>
-                              <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">{formatBlockTime(block.timestamp)}</td>
-                              <td className="py-4 px-6 text-sm font-mono text-on-surface-variant">
-                                {block.hash ? `${block.hash.substring(0, 16)}...` : 'N/A'}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="7" className="py-8 text-center text-on-surface-variant text-sm">
-                              No admin action blocks recorded in blockchain.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* View 2: Payments Blockchain */}
-              {explorerSubTab === 'payments' && (
-                <div className="flex flex-col gap-4">
+              {/* Payments Blockchain View */}
+              <div className="flex flex-col gap-4">
                   {/* Validation State Banner (Requirement: Total blocks, healthy, warnings, critical, orphan transactions) */}
                   {paymentValidationStatus === 'not_run' ? (
                     <div className="bg-gray-100 border border-gray-300 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-gray-700 shadow-sm animate-fadeIn">
@@ -1343,7 +1256,6 @@ function AdminDashboard() {
                     </div>
                   )}
                 </div>
-              )}
             </div>
           )}
 
