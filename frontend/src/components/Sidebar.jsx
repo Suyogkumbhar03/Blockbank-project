@@ -24,13 +24,13 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
         {/* Backdrop for mobile drawer */}
         {mobileOpen && (
           <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 lg:hidden"
             onClick={handleCloseMobile}
           />
         )}
         <aside
-          className={`w-64 border-r border-surface-variant flex flex-col justify-between fixed md:sticky top-0 h-screen bg-surface-container-lowest z-50 shrink-0 transition-transform duration-300 ease-in-out ${
-            mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          className={`w-64 border-r border-surface-variant flex flex-col justify-between fixed top-0 left-0 h-screen bg-surface-container-lowest z-[60] shrink-0 transition-transform duration-300 ease-in-out ${
+            mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
           }`}
         >
           <div>
@@ -48,7 +48,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
               <button
                 type="button"
                 onClick={handleCloseMobile}
-                className="md:hidden text-on-surface-variant hover:text-on-surface p-1 rounded-md"
+                className="lg:hidden text-on-surface-variant hover:text-on-surface p-1 rounded-md"
               >
                 <span className="material-symbols-outlined text-xl">close</span>
               </button>
@@ -127,13 +127,13 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
       {/* Backdrop for mobile drawer */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 lg:hidden"
           onClick={handleCloseMobile}
         />
       )}
       <nav
-        className={`h-screen w-64 fixed left-0 top-0 bg-surface-container-lowest border-r border-outline-variant flex flex-col py-lg z-50 transition-transform duration-300 ease-in-out ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        className={`h-screen w-64 fixed left-0 top-0 bg-surface-container-lowest border-r border-outline-variant flex flex-col py-lg z-[60] transition-transform duration-300 ease-in-out ${
+          mobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
         }`}
       >
         <div className="px-md mb-xl flex items-center justify-between">
@@ -151,7 +151,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
           <button
             type="button"
             onClick={handleCloseMobile}
-            className="md:hidden text-on-surface-variant hover:text-on-surface p-1 rounded-md"
+            className="lg:hidden text-on-surface-variant hover:text-on-surface p-1 rounded-md"
           >
             <span className="material-symbols-outlined text-xl">close</span>
           </button>

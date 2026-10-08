@@ -108,18 +108,19 @@ export default function Balance() {
       <Sidebar role="user" mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       {/* Main Content Area */}
-      <div className="ml-0 md:ml-64 flex-1 flex flex-col min-h-screen">
+      <div className="ml-0 lg:ml-64 flex-1 flex flex-col min-h-screen">
         {/* TopNavBar */}
-        <header className="h-16 fixed top-0 right-0 left-0 md:left-64 z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-4 md:px-8">
-          <div className="flex-1 flex items-center">
-            {/* Hamburger Button for Mobile */}
+        <header className="h-16 fixed top-0 right-0 left-0 lg:left-64 z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-4 lg:px-8">
+          <div className="flex-1 flex items-center gap-2">
+            {/* Hamburger Button for Mobile & Tablet */}
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="md:hidden p-2 rounded-lg text-on-surface hover:bg-surface-container mr-2"
+              className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/60 shadow-xs text-xs font-bold transition-all active:scale-95"
               title="Open Navigation Menu"
             >
-              <span className="material-symbols-outlined text-2xl">menu</span>
+              <span className="material-symbols-outlined text-xl text-primary">menu</span>
+              <span>Menu</span>
             </button>
 
             <div className="relative w-full max-w-[200px] sm:max-w-xs md:w-96">
