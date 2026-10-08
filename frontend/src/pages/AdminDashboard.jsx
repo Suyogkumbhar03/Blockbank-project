@@ -541,8 +541,8 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-                <table className="w-full text-left border-collapse">
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[700px] whitespace-nowrap">
                   <thead>
                     <tr className="bg-surface-container border-b border-outline-variant">
                       <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
@@ -612,8 +612,8 @@ function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-                <table className="w-full text-left border-collapse">
+              <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[850px] whitespace-nowrap">
                   <thead>
                     <tr className="bg-surface-container border-b border-outline-variant">
                       <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
@@ -750,8 +750,8 @@ function AdminDashboard() {
 
               {approveSubTab === 'pending' ? (
                 /* Pending Users Table */
-                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-                  <table className="w-full text-left border-collapse">
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[650px] whitespace-nowrap">
                     <thead>
                       <tr className="bg-surface-container border-b border-outline-variant">
                         <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
@@ -802,8 +802,8 @@ function AdminDashboard() {
                 </div>
               ) : (
                 /* Rejected Users Table */
-                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
-                  <table className="w-full text-left border-collapse">
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[700px] whitespace-nowrap">
                     <thead>
                       <tr className="bg-surface-container border-b border-outline-variant">
                         <th className="py-4 px-6 font-semibold text-sm text-on-surface">Name</th>
@@ -924,7 +924,7 @@ function AdminDashboard() {
                     <span className="text-xs text-on-surface-variant font-mono">{chain.length} Total Blocks</span>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse min-w-[850px] whitespace-nowrap">
                       <thead>
                         <tr className="bg-surface-container border-b border-outline-variant">
                           <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
