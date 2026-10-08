@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../services/api'
 import Sidebar from '../components/Sidebar'
 import AdminProfileView from '../components/AdminProfileView'
@@ -37,6 +37,14 @@ function AdminDashboard() {
   const [paymentViewTab, setPaymentViewTab] = useState('table') // 'table' | 'visual'
   const [paymentChain, setPaymentChain] = useState([])
   const [loadingPaymentChain, setLoadingPaymentChain] = useState(false)
+
+  // Payment Blockchain Validation & Polling States
+  const [paymentValidationStatus, setPaymentValidationStatus] = useState('not_run') // 'not_run' | 'valid' | 'warning' | 'invalid'
+  const [paymentValidationResults, setPaymentValidationResults] = useState(null)
+  const [paymentValidationSummary, setPaymentValidationSummary] = useState(null)
+  const [isValidatingPaymentChain, setIsValidatingPaymentChain] = useState(false)
+  const [newBlockToast, setNewBlockToast] = useState(null)
+  const lastPaymentBlockCountRef = useRef(null)
 
   // Approve Users sub-tab state
   const [approveSubTab, setApproveSubTab] = useState('pending') // 'pending' | 'rejected'
@@ -112,14 +120,106 @@ function AdminDashboard() {
   const fetchPaymentBlockchainData = useCallback(async () => {
     try {
       setLoadingPaymentChain(true)
-      const res = await api.get('/admin/payment-blockchain/chain')
-      setPaymentChain(res.data || [])
+      const res = await api.get('/admin/payment-blockchain/blocks')
+      const blocks = res.data || []
+      setPaymentChain(blocks)
+      if (lastPaymentBlockCountRef.current === null) {
+        lastPaymentBlockCountRef.current = blocks.length
+      }
     } catch (error) {
       console.error('Failed to fetch payment blockchain data', error)
     } finally {
       setLoadingPaymentChain(false)
     }
   }, [])
+
+  // Requirement 1 & 4: Poll every 10 seconds for new payment blocks & show green toast
+  useEffect(() => {
+    let isMounted = true
+
+    const pollPaymentBlocks = async () => {
+      try {
+        const res = await api.get('/admin/payment-blockchain/blocks')
+        const blocks = res.data || []
+
+        if (!isMounted) return
+
+        if (lastPaymentBlockCountRef.current !== null && blocks.length > lastPaymentBlockCountRef.current) {
+          const newestBlock = blocks[blocks.length - 1]
+          const amount = (newestBlock.amount || 0).toLocaleString('en-IN')
+          const sender = newestBlock.senderName || 'Sender'
+          const receiver = newestBlock.receiverName || 'Receiver'
+          const toastMsg = `New block added — Block #${newestBlock.index} — ₹${amount} from ${sender} to ${receiver}`
+
+          // Show green toast notification
+          setNewBlockToast({
+            id: Date.now(),
+            message: toastMsg
+          })
+
+          // Automatically update blocks list on admin side without page refresh
+          setPaymentChain(blocks)
+
+          // Requirement 4: Reset validation state to "not run yet" and neutral grey banner
+          setPaymentValidationStatus('not_run')
+          setPaymentValidationResults(null)
+          setPaymentValidationSummary(null)
+        } else if (lastPaymentBlockCountRef.current === null) {
+          setPaymentChain(blocks)
+        }
+
+        lastPaymentBlockCountRef.current = blocks.length
+      } catch (err) {
+        // Silently catch polling error
+      }
+    }
+
+    // Run poll every 10 seconds
+    const interval = setInterval(pollPaymentBlocks, 10000)
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
+  }, [])
+
+  // Auto-dismiss block toast after 6 seconds
+  useEffect(() => {
+    if (newBlockToast) {
+      const timer = setTimeout(() => {
+        setNewBlockToast(null)
+      }, 6000)
+      return () => clearTimeout(timer)
+    }
+  }, [newBlockToast])
+
+  // Enhanced Blockchain validation handler
+  const handleValidatePaymentChain = async () => {
+    try {
+      setIsValidatingPaymentChain(true)
+      const res = await api.get('/admin/payment-blockchain/validate')
+      const data = res.data || {}
+      const results = data.results || []
+      setPaymentValidationResults(results)
+      setPaymentValidationSummary(data)
+
+      const hasCritical = results.some((r) => r.severity === 'CRITICAL') || (data.critical && data.critical > 0)
+      const hasWarning = results.some((r) => r.severity === 'WARNING') || (data.warnings && data.warnings > 0)
+      const hasOrphans = (data.orphanCount && data.orphanCount > 0)
+
+      if (hasCritical || data.valid === false) {
+        setPaymentValidationStatus('invalid')
+      } else if (hasWarning || hasOrphans) {
+        setPaymentValidationStatus('warning')
+      } else {
+        setPaymentValidationStatus('valid')
+      }
+    } catch (error) {
+      console.error('Failed to validate payment blockchain', error)
+      alert('Failed to validate payment blockchain. Please try again.')
+    } finally {
+      setIsValidatingPaymentChain(false)
+    }
+  }
 
   const formatBlockTime = (dateStr) => {
     if (!dateStr) return 'N/A'
@@ -751,6 +851,18 @@ function AdminDashboard() {
                 </div>
 
                 <div className="flex items-center gap-3">
+                  {explorerSubTab === 'payments' && (
+                    <button
+                      onClick={handleValidatePaymentChain}
+                      disabled={isValidatingPaymentChain || paymentChain.length === 0}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity shadow-sm cursor-pointer disabled:opacity-50"
+                    >
+                      <span className={`material-symbols-outlined text-[18px] ${isValidatingPaymentChain ? 'animate-spin' : ''}`}>
+                        {isValidatingPaymentChain ? 'sync' : 'verified_user'}
+                      </span>
+                      {isValidatingPaymentChain ? 'Validating Chain...' : 'Validate Chain'}
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       if (explorerSubTab === 'admin') fetchBlockchainData()
@@ -848,6 +960,129 @@ function AdminDashboard() {
               {/* View 2: Payments Blockchain */}
               {explorerSubTab === 'payments' && (
                 <div className="flex flex-col gap-4">
+                  {/* Validation State Banner (Requirement: Total blocks, healthy, warnings, critical, orphan transactions) */}
+                  {paymentValidationStatus === 'not_run' ? (
+                    <div className="bg-gray-100 border border-gray-300 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-gray-700 shadow-sm animate-fadeIn">
+                      <div className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-[24px] text-gray-500 shrink-0">help_outline</span>
+                        <div>
+                          <span className="font-bold text-sm text-gray-800">
+                            Validation not run yet. Click Validate Chain.
+                          </span>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Verify block indexes, timestamp ordering, bank records cross-check, cryptographic hashes, and authority signatures.
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleValidatePaymentChain}
+                        disabled={isValidatingPaymentChain || paymentChain.length === 0}
+                        className="px-4 py-2 bg-gray-800 text-white rounded-lg text-xs font-bold hover:bg-gray-900 transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 shrink-0 shadow-sm"
+                      >
+                        <span className={`material-symbols-outlined text-[16px] ${isValidatingPaymentChain ? 'animate-spin' : ''}`}>
+                          {isValidatingPaymentChain ? 'sync' : 'verified_user'}
+                        </span>
+                        {isValidatingPaymentChain ? 'Validating...' : 'Validate Chain'}
+                      </button>
+                    </div>
+                  ) : paymentValidationSummary ? (
+                    <div
+                      className={`rounded-xl p-4 border flex flex-col gap-3 shadow-sm animate-fadeIn ${
+                        paymentValidationStatus === 'invalid'
+                          ? 'bg-red-50/95 border-red-300 text-red-950'
+                          : paymentValidationStatus === 'warning'
+                          ? 'bg-amber-50/95 border-amber-300 text-amber-950'
+                          : 'bg-emerald-50/95 border-emerald-300 text-emerald-950'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={`material-symbols-outlined text-[26px] shrink-0 font-bold ${
+                              paymentValidationStatus === 'invalid'
+                                ? 'text-red-600'
+                                : paymentValidationStatus === 'warning'
+                                ? 'text-amber-600'
+                                : 'text-emerald-600'
+                            }`}
+                          >
+                            {paymentValidationStatus === 'invalid'
+                              ? 'error'
+                              : paymentValidationStatus === 'warning'
+                              ? 'warning'
+                              : 'check_circle'}
+                          </span>
+                          <div>
+                            <span className="font-extrabold text-sm sm:text-base">
+                              {paymentValidationStatus === 'invalid'
+                                ? '⚠️ Chain Integrity Compromised — Issues Found'
+                                : paymentValidationStatus === 'warning'
+                                ? '⚠️ Blockchain Warnings Detected'
+                                : `✓ Blockchain Valid — All ${paymentValidationSummary.totalBlocks || paymentChain.length} blocks passed`}
+                            </span>
+                            <p className="text-xs opacity-85 mt-0.5">
+                              {paymentValidationSummary.message}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleValidatePaymentChain}
+                          disabled={isValidatingPaymentChain}
+                          className={`px-3.5 py-1.5 rounded-lg text-xs font-bold text-white transition-colors flex items-center justify-center gap-1.5 cursor-pointer shrink-0 disabled:opacity-50 shadow-xs ${
+                            paymentValidationStatus === 'invalid'
+                              ? 'bg-red-600 hover:bg-red-700'
+                              : paymentValidationStatus === 'warning'
+                              ? 'bg-amber-600 hover:bg-amber-700'
+                              : 'bg-emerald-600 hover:bg-emerald-700'
+                          }`}
+                        >
+                          <span className={`material-symbols-outlined text-[16px] ${isValidatingPaymentChain ? 'animate-spin' : ''}`}>
+                            refresh
+                          </span>
+                          {isValidatingPaymentChain ? 'Validating...' : 'Re-validate'}
+                        </button>
+                      </div>
+
+                      {/* Summary Metrics: Total blocks, healthy, warnings, critical, orphan transactions */}
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-2.5 border-t border-current/15 text-xs">
+                        <div className="bg-white/80 rounded-lg p-2.5 border border-current/10 flex flex-col">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider opacity-75">Total Blocks</span>
+                          <span className="text-base font-extrabold font-mono text-on-surface">
+                            {paymentValidationSummary.totalBlocks ?? paymentChain.length}
+                          </span>
+                        </div>
+                        <div className="bg-white/80 rounded-lg p-2.5 border border-current/10 flex flex-col">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">Healthy</span>
+                          <span className="text-base font-extrabold font-mono text-emerald-700 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                            {paymentValidationSummary.passed ?? 0}
+                          </span>
+                        </div>
+                        <div className="bg-white/80 rounded-lg p-2.5 border border-current/10 flex flex-col">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-700">Warnings</span>
+                          <span className="text-base font-extrabold font-mono text-amber-700 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">warning</span>
+                            {paymentValidationSummary.warnings ?? 0}
+                          </span>
+                        </div>
+                        <div className="bg-white/80 rounded-lg p-2.5 border border-current/10 flex flex-col">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-red-700">Critical</span>
+                          <span className="text-base font-extrabold font-mono text-red-700 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">error</span>
+                            {paymentValidationSummary.critical ?? 0}
+                          </span>
+                        </div>
+                        <div className="bg-white/80 rounded-lg p-2.5 border border-current/10 flex flex-col col-span-2 sm:col-span-1">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-700">Missing Records</span>
+                          <span className="text-base font-extrabold font-mono text-purple-700 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">receipt_long</span>
+                            {paymentValidationSummary.orphanCount ?? 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
                   {/* Secondary Sub-Tab Switcher */}
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex bg-surface-container rounded-lg p-1 w-fit border border-outline-variant/60">
@@ -890,10 +1125,13 @@ function AdminDashboard() {
                         </div>
                       ) : (
                         <div className="overflow-x-auto w-full">
-                          <table className="w-full min-w-[1000px] text-left border-collapse whitespace-nowrap">
+                          <table className="w-full min-w-[1050px] text-left border-collapse whitespace-nowrap">
                             <thead>
                               <tr className="bg-surface-container border-b border-outline-variant">
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
+                                {paymentValidationResults && (
+                                  <th className="py-4 px-6 font-semibold text-sm text-on-surface">Audit Status</th>
+                                )}
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Transaction ID</th>
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Sender</th>
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Receiver</th>
@@ -907,6 +1145,12 @@ function AdminDashboard() {
                             <tbody>
                               {paymentChain.length > 0 ? (
                                 paymentChain.map((block) => {
+                                  const valRes = paymentValidationResults
+                                    ? paymentValidationResults.find((r) => r.index === block.index)
+                                    : null
+                                  const isCriticalRow = valRes && (valRes.severity === 'CRITICAL' || valRes.status === 'FAIL')
+                                  const isWarningRow = valRes && valRes.severity === 'WARNING'
+
                                   const truncatedTxId = block.transactionId
                                     ? (block.transactionId.length > 14 ? `${block.transactionId.substring(0, 14)}...` : block.transactionId)
                                     : 'N/A'
@@ -923,9 +1167,51 @@ function AdminDashboard() {
                                   return (
                                     <tr
                                       key={block._id || block.index}
-                                      className="border-b border-outline-variant hover:bg-surface-container-low transition-colors"
+                                      className={`border-b border-outline-variant transition-colors ${
+                                        isCriticalRow
+                                          ? 'bg-red-50/70 hover:bg-red-100/80 border-l-4 border-l-red-500'
+                                          : isWarningRow
+                                          ? 'bg-amber-50/70 hover:bg-amber-100/80 border-l-4 border-l-amber-500'
+                                          : 'hover:bg-surface-container-low'
+                                      }`}
                                     >
                                       <td className="py-4 px-6 text-sm font-bold font-mono text-primary">#{block.index}</td>
+                                      {paymentValidationResults && (
+                                        <td className="py-4 px-6 text-sm">
+                                          {valRes?.severity === 'OK' ? (
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-xs font-bold">
+                                              <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                                              Healthy
+                                            </span>
+                                          ) : isWarningRow ? (
+                                            <div className="flex flex-col gap-1 max-w-[260px]">
+                                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded-md text-xs font-bold w-fit">
+                                                <span className="material-symbols-outlined text-[14px]">warning</span>
+                                                Warning
+                                              </span>
+                                              {valRes.reasons && valRes.reasons.length > 0 && (
+                                                <span className="text-[11px] text-amber-800 leading-tight">
+                                                  {valRes.reasons.join('; ')}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : isCriticalRow ? (
+                                            <div className="flex flex-col gap-1 max-w-[260px]">
+                                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-100 text-red-900 border border-red-300 rounded-md text-xs font-bold w-fit">
+                                                <span className="material-symbols-outlined text-[14px]">error</span>
+                                                Tampered
+                                              </span>
+                                              {valRes.reasons && valRes.reasons.length > 0 && (
+                                                <span className="text-[11px] text-red-800 leading-tight">
+                                                  {valRes.reasons.join('; ')}
+                                                </span>
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <span className="text-xs text-on-surface-variant font-mono">—</span>
+                                          )}
+                                        </td>
+                                      )}
                                       <td className="py-4 px-6 text-sm font-mono font-semibold text-on-surface" title={block.transactionId}>
                                         {truncatedTxId}
                                       </td>
@@ -937,7 +1223,7 @@ function AdminDashboard() {
                                         <div className="font-bold text-on-surface">{block.receiverName}</div>
                                         <div className="text-xs text-on-surface-variant font-mono">{block.receiverPaymentId}</div>
                                       </td>
-                                      <td className="py-4 px-6 text-sm font-mono font-bold text-emerald-600">
+                                      <td className={`py-4 px-6 text-sm font-mono font-bold ${isCriticalRow ? 'text-red-700' : isWarningRow ? 'text-amber-700' : 'text-emerald-600'}`}>
                                         ₹{(block.amount || 0).toLocaleString('en-IN')}
                                       </td>
                                       <td className="py-4 px-6 text-sm text-on-surface-variant font-mono">{formatBlockTime(block.timestamp)}</td>
@@ -955,7 +1241,7 @@ function AdminDashboard() {
                                 })
                               ) : (
                                 <tr>
-                                  <td colSpan="9" className="py-8 text-center text-on-surface-variant text-sm">
+                                  <td colSpan={paymentValidationResults ? 10 : 9} className="py-8 text-center text-on-surface-variant text-sm">
                                     No payment blocks recorded in blockchain yet.
                                   </td>
                                 </tr>
@@ -969,7 +1255,78 @@ function AdminDashboard() {
 
                   {/* Option B: Visual Blockchain View */}
                   {paymentViewTab === 'visual' && (
-                    <PaymentBlockchainFlow paymentChain={paymentChain} />
+                    <PaymentBlockchainFlow
+                      paymentChain={paymentChain}
+                      validationResults={paymentValidationResults}
+                      validationStatus={paymentValidationStatus}
+                    />
+                  )}
+
+                  {/* Missing Blockchain Records Section (Requirement: orphan transactions) */}
+                  {paymentValidationSummary && (
+                    <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-outline-variant">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[22px] text-amber-600">receipt_long</span>
+                            <h3 className="font-bold text-base text-on-surface">Missing Blockchain Records</h3>
+                            {paymentValidationSummary.orphanCount > 0 ? (
+                              <span className="px-2.5 py-0.5 bg-red-100 text-red-800 border border-red-300 rounded-full text-xs font-bold">
+                                {paymentValidationSummary.orphanCount} Missing
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-full text-xs font-bold">
+                                All Recorded
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-on-surface-variant mt-1">
+                            {paymentValidationSummary.orphanCount > 0
+                              ? "The following bank transactions were never added to the blockchain."
+                              : "All bank transactions have corresponding verified blocks on the blockchain."}
+                          </p>
+                        </div>
+                      </div>
+
+                      {paymentValidationSummary.orphanTransactions && paymentValidationSummary.orphanTransactions.length > 0 ? (
+                        <div className="overflow-x-auto mt-4">
+                          <table className="w-full text-left border-collapse whitespace-nowrap text-xs">
+                            <thead>
+                              <tr className="bg-amber-50/70 border-b border-amber-200 text-amber-950 font-bold">
+                                <th className="py-3 px-4">Transaction ID</th>
+                                <th className="py-3 px-4">Date & Time</th>
+                                <th className="py-3 px-4">Sender</th>
+                                <th className="py-3 px-4">Receiver</th>
+                                <th className="py-3 px-4">Amount</th>
+                                <th className="py-3 px-4">Status & Details</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {paymentValidationSummary.orphanTransactions.map((tx) => (
+                                <tr key={tx.transactionId} className="border-b border-outline-variant/60 hover:bg-amber-50/40">
+                                  <td className="py-3 px-4 font-mono font-bold text-on-surface">{tx.transactionId}</td>
+                                  <td className="py-3 px-4 text-on-surface-variant font-mono">{formatBlockTime(tx.date)}</td>
+                                  <td className="py-3 px-4 font-mono text-on-surface">{tx.sender}</td>
+                                  <td className="py-3 px-4 font-mono text-on-surface">{tx.receiver}</td>
+                                  <td className="py-3 px-4 font-mono font-bold text-amber-700">₹{(tx.amount || 0).toLocaleString('en-IN')}</td>
+                                  <td className="py-3 px-4 text-red-700 font-medium">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="material-symbols-outlined text-[14px]">warning</span>
+                                      <span>{tx.issue || "This bank transaction has no block on the blockchain. It was never recorded."}</span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : (
+                        <div className="mt-4 p-4 rounded-xl bg-emerald-50/60 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[18px] text-emerald-600">check_circle</span>
+                          <span>Every bank transaction is accounted for. No orphan or missing blockchain records exist.</span>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -993,6 +1350,31 @@ function AdminDashboard() {
           )}
         </div>
       </main>
+
+      {/* Real-time New Block Green Toast Notification (Requirement 1) */}
+      {newBlockToast && (
+        <div className="fixed top-6 right-6 z-[99999] max-w-md animate-fadeIn shadow-2xl">
+          <div className="bg-emerald-600 text-white px-4 py-3.5 rounded-xl border border-emerald-500 flex items-start gap-3 shadow-lg">
+            <span className="material-symbols-outlined text-[24px] shrink-0 text-emerald-100 mt-0.5">
+              token
+            </span>
+            <div className="flex-1 pr-1">
+              <div className="font-bold text-xs uppercase tracking-wider text-emerald-200 mb-0.5">
+                Blockchain Live Update
+              </div>
+              <div className="text-sm font-medium leading-snug">
+                {newBlockToast.message}
+              </div>
+            </div>
+            <button
+              onClick={() => setNewBlockToast(null)}
+              className="p-1 rounded-md text-emerald-200 hover:text-white hover:bg-emerald-700/50 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">close</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

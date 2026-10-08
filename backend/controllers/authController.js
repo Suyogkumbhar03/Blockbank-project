@@ -4,10 +4,74 @@ const User = require('../models/User');
 
 const registerUser = async (req, res) => {
     try {
-        const { name, email, phone, dateOfBirth, password, pin } = req.body;
+        const { fullName, name, username, email, phone, dateOfBirth, password, pin } = req.body;
+
+        // Validate Full Name
+        const resolvedFullName = (fullName || name || '').trim();
+        if (!resolvedFullName) {
+            return res.status(400).json({ message: 'Full name is required' });
+        }
+        if (resolvedFullName.length < 2) {
+            return res.status(400).json({ message: 'Full name must be at least 2 characters long' });
+        }
+        if (!/^[a-zA-Z\s'.]+$/.test(resolvedFullName)) {
+            return res.status(400).json({ message: 'Full name should only contain letters and spaces' });
+        }
+
+        // Validate Username (cannot start with number, all letters lowercase, alphanumeric/underscore)
+        const resolvedUsername = (username || name || '').trim().toLowerCase();
+        if (!resolvedUsername) {
+            return res.status(400).json({ message: 'Username is required' });
+        }
+        if (/^[0-9]/.test(resolvedUsername)) {
+            return res.status(400).json({ message: 'Username cannot start with a number' });
+        }
+        if (/[A-Z]/.test(username || '')) {
+            return res.status(400).json({ message: 'All letters in username must be lowercase' });
+        }
+        if (!/^[a-z][a-z0-9_]{2,29}$/.test(resolvedUsername)) {
+            return res.status(400).json({ message: 'Username must start with a lowercase letter and contain only lowercase letters, numbers, or underscores (3-30 characters)' });
+        }
+
+        // Check if username is already taken
+        const existingUsername = await User.findOne({
+            $or: [
+                { username: resolvedUsername },
+                { name: { $regex: new RegExp(`^${resolvedUsername}$`, 'i') } }
+            ]
+        });
+        if (existingUsername) {
+            return res.status(400).json({ message: 'Username already exists. Please choose a different username.' });
+        }
+
+        // Validate Email (must contain gmail, ., com and match valid gmail structure)
+        if (!email || typeof email !== 'string') {
+            return res.status(400).json({ message: 'Email address is required' });
+        }
+        const lowerEmail = email.toLowerCase().trim();
+        if (!lowerEmail.includes('gmail') || !lowerEmail.includes('.') || !lowerEmail.includes('com') || !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(lowerEmail)) {
+            return res.status(400).json({ message: 'Email must be a valid Gmail address containing "gmail", ".", and "com" (e.g. username@gmail.com)' });
+        }
+
+        // Validate Password (at least 8 chars, 1st char uppercase, other lowercase and numbers)
+        if (!password || typeof password !== 'string') {
+            return res.status(400).json({ message: 'Password is required' });
+        }
+        if (password.length < 8) {
+            return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+        }
+        if (!/^[A-Z]/.test(password)) {
+            return res.status(400).json({ message: 'First letter of password must be uppercase' });
+        }
+        if (!/^[A-Z][a-z0-9]+$/.test(password)) {
+            return res.status(400).json({ message: 'Remaining password characters must be lowercase letters and numbers only' });
+        }
+        if (!/[a-z]/.test(password) || !/[0-9]/.test(password)) {
+            return res.status(400).json({ message: 'Password must include both lowercase letters and numbers' });
+        }
 
         // Check if email already registered
-        const existingUser = await User.findOne({ email });
+        const existingUser = await User.findOne({ email: lowerEmail });
         if (existingUser) {
             return res.status(400).json({ message: 'Email already registered' });
         }
@@ -50,9 +114,11 @@ const registerUser = async (req, res) => {
         const hashedPin = await bcrypt.hash(stringPin, 10);
 
         const newUser = new User({
-            name,
-            email,
-            phone,
+            fullName: resolvedFullName,
+            username: resolvedUsername,
+            name: resolvedFullName || resolvedUsername,
+            email: lowerEmail,
+            phone: String(phone).trim(),
             dateOfBirth: dob,
             password: hashedPassword,
             transactionPin: hashedPin
@@ -281,4 +347,35 @@ const updatePassword = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile, verifyOldPassword, updatePassword };
+const checkUsername = async (req, res) => {
+    try {
+        const { username } = req.query;
+        if (!username || typeof username !== 'string') {
+            return res.status(400).json({ available: false, message: 'Username parameter is required' });
+        }
+        const trimmed = username.trim().toLowerCase();
+        if (/^[0-9]/.test(trimmed)) {
+            return res.status(400).json({ available: false, message: 'Username cannot start with a number' });
+        }
+        if (!/^[a-z][a-z0-9_]{2,29}$/.test(trimmed)) {
+            return res.status(400).json({ available: false, message: 'Username format is invalid' });
+        }
+
+        const existingUser = await User.findOne({
+            $or: [
+                { username: trimmed },
+                { name: { $regex: new RegExp(`^${trimmed}$`, 'i') } }
+            ]
+        });
+
+        if (existingUser) {
+            return res.json({ available: false, message: 'Username already taken' });
+        }
+
+        return res.json({ available: true, message: 'Username is available' });
+    } catch (error) {
+        return res.status(500).json({ available: false, message: 'Error checking username', error: error.message });
+    }
+};
+
+module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile, verifyOldPassword, updatePassword, checkUsername };

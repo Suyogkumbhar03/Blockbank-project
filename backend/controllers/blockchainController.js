@@ -4,6 +4,7 @@ const PaymentBlock = require('../models/PaymentBlock');
 const FraudAlert = require('../models/FraudAlert');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const { validatePaymentChain: validatePaymentChainUtil } = require('../utils/paymentBlockchain');
 
 /**
  * Internal helper to add a new block to the hash chain.
@@ -253,11 +254,27 @@ const getPaymentChain = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/admin/payment-blockchain/validate
+ * Validates the complete payment blockchain using utils/paymentBlockchain.js.
+ * Checks hash, RSA authority signature, previousHash link, index sequence, timestamp ordering,
+ * cross-verifies against transaction records, and detects orphan transactions.
+ */
+const validatePaymentChain = async (req, res) => {
+    try {
+        const result = await validatePaymentChainUtil();
+        res.status(200).json(result);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error validating payment blockchain', error: error.message });
+    }
+};
+
 module.exports = {
     addBlock,
     getChain,
     getPaymentChain,
     validateChain,
     validateChainInternal,
+    validatePaymentChain,
     getFraudAlerts
 };

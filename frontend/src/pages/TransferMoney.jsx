@@ -80,7 +80,8 @@ export default function TransferMoney() {
 
   const isVerified = verifyState === 'verified' && verifiedRecipient !== null
   const parsedAmt = parseFloat(amount) || 0
-  const canSend = isVerified && parsedAmt > 0 && !isSending
+  const isInsufficient = parsedAmt > 0 && parsedAmt > userBalance
+  const canSend = isVerified && parsedAmt > 0 && !isInsufficient && !isSending
 
   /* ---------- handlers ---------- */
   const handleVerify = async () => {
@@ -488,7 +489,9 @@ export default function TransferMoney() {
                     </div>
 
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[28px] leading-[1.2] font-bold text-gray-400">
+                      <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-[28px] leading-[1.2] font-bold ${
+                        isInsufficient ? 'text-red-400' : 'text-gray-400'
+                      }`}>
                         ₹
                       </span>
                       <input
@@ -498,9 +501,23 @@ export default function TransferMoney() {
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         disabled={isSending}
-                        className="w-full bg-white border border-gray-200 rounded-lg pl-12 pr-4 py-4 text-[32px] leading-[1.2] font-bold tracking-[-0.02em] text-gray-900 text-right focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-60"
+                        className={`w-full bg-white border rounded-lg pl-12 pr-4 py-4 text-[32px] leading-[1.2] font-bold tracking-[-0.02em] text-right focus:outline-none transition-all disabled:opacity-60 ${
+                          isInsufficient
+                            ? 'border-red-500 text-red-600 focus:border-red-600 focus:ring-1 focus:ring-red-500 bg-red-50/10'
+                            : 'border-gray-200 text-gray-900 focus:border-primary focus:ring-1 focus:ring-primary'
+                        }`}
                       />
                     </div>
+
+                    {/* Early red warning when balance is insufficient */}
+                    {isInsufficient && (
+                      <div className="flex items-center gap-1.5 text-[12px] text-red-600 font-semibold mt-1">
+                        <span className="material-symbols-outlined text-[16px] shrink-0 text-red-600">error</span>
+                        <span>
+                          Balance is not sufficient. Available balance is ₹{userBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}.
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* ── Remarks section ── */}
@@ -540,11 +557,22 @@ export default function TransferMoney() {
                 id="btn-send"
                 type="button"
                 disabled={!canSend || pinLocked}
-                onClick={() => { setModalStep('confirm'); setPin(''); setPinError(''); }}
-                className="bg-gray-800 text-white text-[13px] font-semibold px-6 py-2 rounded-lg hover:bg-gray-900 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-2"
+                onClick={() => { 
+                  if (isInsufficient) return;
+                  setModalStep('confirm'); 
+                  setPin(''); 
+                  setPinError(''); 
+                }}
+                className={`text-[13px] font-semibold px-6 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                  !canSend || pinLocked
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-60'
+                    : 'bg-gray-800 text-white hover:bg-gray-900 cursor-pointer'
+                }`}
               >
-                <span className="material-symbols-outlined text-[18px]">{pinLocked ? 'lock' : 'send'}</span>
-                {pinLocked ? 'Locked' : 'Send Money'}
+                <span className="material-symbols-outlined text-[18px]">
+                  {pinLocked ? 'lock' : isInsufficient ? 'block' : 'send'}
+                </span>
+                {pinLocked ? 'Locked' : isInsufficient ? 'Insufficient Balance' : 'Send Money'}
               </button>
             </div>
           </div>

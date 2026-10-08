@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getPendingUsers, getApprovedUsers, getRejectedUsers, approveUser, rejectUser, getAdminProfile, updateAdminProfile, getAllTransactions, toggleFreezeUser, freezeUser, unfreezeUser, deleteUser } = require('../controllers/adminController');
-const { getChain, getPaymentChain, validateChain, getFraudAlerts } = require('../controllers/blockchainController');
+const { getChain, getPaymentChain, validateChain, validatePaymentChain, getFraudAlerts } = require('../controllers/blockchainController');
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
 router.get('/profile', verifyToken, isAdmin, getAdminProfile);
@@ -22,7 +22,9 @@ router.get('/blockchain/chain', verifyToken, isAdmin, getChain);
 router.get('/blockchain/validate', verifyToken, isAdmin, validateChain);
 router.get('/blockchain/fraud-alerts', verifyToken, isAdmin, getFraudAlerts);
 
-// Payment Blockchain route
+// Payment Blockchain routes
 router.get('/payment-blockchain/chain', verifyToken, isAdmin, getPaymentChain);
+router.get('/payment-blockchain/blocks', verifyToken, isAdmin, getPaymentChain);
+router.get('/payment-blockchain/validate', verifyToken, isAdmin, validatePaymentChain);
 
 module.exports = router;

@@ -1,57 +1,31 @@
 import { MarkerType } from '@xyflow/react'
 
 /**
- * Validates a payment block against Proof-of-Authority (PoA) hash rules.
- * Check 1: Genesis block (index === 0)
- * Check 2: Explicit isValid property if returned by backend
- * Check 3: Link integrity check (previousHash === prevBlock.hash)
- */
-export function validatePaymentBlock(block, prevBlock) {
-  if (!block) return { isValid: false, status: 'tampered', label: 'Tampered Block' }
-
-  if (block.index === 0) {
-    return { isValid: true, status: 'genesis', label: 'Genesis' }
-  }
-
-  // If backend provided isValid explicitly
-  if (typeof block.isValid === 'boolean') {
-    if (!block.isValid) {
-      return { isValid: false, status: 'tampered', label: 'Tampered Block' }
-    }
-  }
-
-  // Check link integrity if previous block exists
-  if (prevBlock && prevBlock.hash && block.previousHash) {
-    if (block.previousHash !== prevBlock.hash) {
-      return { isValid: false, status: 'tampered', label: 'Tampered Block' }
-    }
-  }
-
-  return { isValid: true, status: 'verified', label: 'PoA Verified' }
-}
-
-/**
  * Converts array of payment blocks into React Flow node objects.
+ * Supports validationResultsMap from GET /api/admin/payment-blockchain/validate.
  */
-export function buildBlockchainNodes(blocks = [], onSelectBlock) {
+export function buildBlockchainNodes(blocks = [], onSelectBlock, validationResultsMap = null) {
   if (!Array.isArray(blocks) || blocks.length === 0) return []
 
   const nodes = []
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i]
-    const prevBlock = i > 0 ? blocks[i - 1] : null
-    const validation = validatePaymentBlock(block, prevBlock)
+    const validationResult = validationResultsMap ? validationResultsMap[block.index] : null
+
+    const severity = validationResult?.severity || (validationResult ? (validationResult.status === 'PASS' ? 'OK' : 'CRITICAL') : undefined)
+    const reasons = validationResult?.reasons || []
 
     nodes.push({
       id: `block-${block.index}`,
       type: 'paymentBlock',
-      position: { x: i * 340, y: 70 },
+      position: { x: i * 350, y: 70 },
       data: {
         ...block,
-        isValid: validation.isValid,
-        statusType: validation.status,
-        statusLabel: validation.label,
-        onSelect: () => onSelectBlock && onSelectBlock(block, validation)
+        validationStatus: validationResult ? validationResult.status : undefined, // 'PASS' | 'FAIL' | undefined
+        severity, // 'OK' | 'WARNING' | 'CRITICAL' | undefined
+        reasons,
+        validationResult,
+        onSelect: () => onSelectBlock && onSelectBlock(block, validationResult)
       }
     })
   }
@@ -61,45 +35,68 @@ export function buildBlockchainNodes(blocks = [], onSelectBlock) {
 
 /**
  * Converts array of payment blocks into React Flow edge objects.
+ * Shows red dashed line with '✕ Broken Chain' if validation failed between blocks.
  */
-export function buildBlockchainEdges(blocks = []) {
+export function buildBlockchainEdges(blocks = [], validationResultsMap = null) {
   if (!Array.isArray(blocks) || blocks.length <= 1) return []
 
   const edges = []
   for (let i = 0; i < blocks.length - 1; i++) {
     const currentBlock = blocks[i]
     const nextBlock = blocks[i + 1]
-    const nextValidation = validatePaymentBlock(nextBlock, currentBlock)
 
-    const isTampered = !nextValidation.isValid
+    let isBroken = false
+
+    if (validationResultsMap) {
+      const currResult = validationResultsMap[currentBlock.index]
+      const nextResult = validationResultsMap[nextBlock.index]
+
+      const currSeverity = currResult?.severity || (currResult?.status === 'FAIL' ? 'CRITICAL' : 'OK')
+      const nextSeverity = nextResult?.severity || (nextResult?.status === 'FAIL' ? 'CRITICAL' : 'OK')
+
+      // A connection is visually broken if current or next block is CRITICAL, or link is broken, or blocks out of order
+      if (
+        currSeverity === 'CRITICAL' ||
+        nextSeverity === 'CRITICAL' ||
+        currResult?.linkValid === false ||
+        nextResult?.linkValid === false ||
+        nextResult?.indexValid === false ||
+        currResult?.status === 'FAIL' ||
+        nextResult?.status === 'FAIL'
+      ) {
+        isBroken = true
+      }
+    }
 
     edges.push({
       id: `edge-${currentBlock.index}-${nextBlock.index}`,
       source: `block-${currentBlock.index}`,
       target: `block-${nextBlock.index}`,
-      label: 'previousHash',
+      label: isBroken ? '✕ Broken Chain' : 'previousHash',
       type: 'smoothstep',
-      animated: !isTampered,
+      animated: !isBroken,
       style: {
-        stroke: isTampered ? '#ef4444' : '#0284c7',
-        strokeWidth: isTampered ? 2.5 : 2,
-        strokeDasharray: isTampered ? '5,5' : 'none'
+        stroke: isBroken ? '#ef4444' : '#0284c7',
+        strokeWidth: isBroken ? 2.5 : 2,
+        strokeDasharray: isBroken ? '6,6' : 'none'
       },
       labelStyle: {
-        fill: isTampered ? '#ef4444' : '#64748b',
+        fill: isBroken ? '#dc2626' : '#64748b',
         fontSize: 10,
-        fontWeight: 600,
+        fontWeight: isBroken ? 800 : 600,
         fontFamily: 'monospace'
       },
       labelBgStyle: {
-        fill: '#ffffff',
-        fillOpacity: 0.95,
+        fill: isBroken ? '#fef2f2' : '#ffffff',
+        fillOpacity: 0.98,
+        stroke: isBroken ? '#ef4444' : '#cbd5e1',
+        strokeWidth: isBroken ? 1.5 : 1,
         rx: 4,
         ry: 4
       },
       markerEnd: {
         type: MarkerType.ArrowClosed,
-        color: isTampered ? '#ef4444' : '#0284c7',
+        color: isBroken ? '#ef4444' : '#0284c7',
         width: 18,
         height: 18
       }

@@ -13,7 +13,11 @@ import '@xyflow/react/dist/style.css'
 import PaymentBlockNode from './PaymentBlockNode'
 import { buildBlockchainNodes, buildBlockchainEdges } from './blockchainFlowUtils'
 
-export default function PaymentBlockchainFlow({ paymentChain = [] }) {
+export default function PaymentBlockchainFlow({
+  paymentChain = [],
+  validationResults = null,
+  validationStatus = 'not_run'
+}) {
   const [selectedBlockData, setSelectedBlockData] = useState(null)
 
   // Custom node types definition
@@ -26,14 +30,27 @@ export default function PaymentBlockchainFlow({ paymentChain = [] }) {
     setSelectedBlockData({ block, validation })
   }
 
+  // Convert validationResults array into map for fast lookup
+  const validationResultsMap = useMemo(() => {
+    if (!validationResults) return null
+    if (Array.isArray(validationResults)) {
+      const map = {}
+      for (const item of validationResults) {
+        map[item.index] = item
+      }
+      return map
+    }
+    return validationResults
+  }, [validationResults])
+
   useEffect(() => {
     if (Array.isArray(paymentChain)) {
-      const generatedNodes = buildBlockchainNodes(paymentChain, handleSelectBlock)
-      const generatedEdges = buildBlockchainEdges(paymentChain)
+      const generatedNodes = buildBlockchainNodes(paymentChain, handleSelectBlock, validationResultsMap)
+      const generatedEdges = buildBlockchainEdges(paymentChain, validationResultsMap)
       setNodes(generatedNodes)
       setEdges(generatedEdges)
     }
-  }, [paymentChain, setNodes, setEdges])
+  }, [paymentChain, validationResultsMap, setNodes, setEdges])
 
   const formatFullDate = (timestamp) => {
     if (!timestamp) return 'N/A'
@@ -55,6 +72,8 @@ export default function PaymentBlockchainFlow({ paymentChain = [] }) {
     )
   }
 
+  const hasRunValidation = validationStatus !== 'not_run' && validationResultsMap !== null
+
   return (
     <div className="w-full flex flex-col gap-3 mb-6">
       {/* Top Legend and Title Bar */}
@@ -67,24 +86,43 @@ export default function PaymentBlockchainFlow({ paymentChain = [] }) {
         </div>
 
         {/* Legend Pills */}
-        <div className="flex items-center gap-2 text-[11px] font-semibold">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            Genesis Block
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            PoA Verified
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 border border-red-300 rounded-full">
-            <span className="w-2 h-2 rounded-full bg-red-600"></span>
-            Tampered Block
-          </span>
+        <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+          {hasRunValidation ? (
+            <>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-full">
+                <span className="material-symbols-outlined text-[13px] text-emerald-600">check_circle</span>
+                Healthy (No issues)
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-300 rounded-full">
+                <span className="material-symbols-outlined text-[13px] text-amber-600">warning</span>
+                Warning (Structural issue)
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 border border-red-300 rounded-full">
+                <span className="material-symbols-outlined text-[13px] text-red-600">error</span>
+                Tampered (Compromised)
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 text-red-700 border border-dashed border-red-400 rounded-full">
+                <span className="text-[12px] font-bold text-red-600">✕</span>
+                Broken Chain Link
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                Genesis Block
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface-container text-on-surface-variant border border-outline-variant rounded-full">
+                <span className="w-2 h-2 rounded-full bg-primary/60"></span>
+                PoA Ledger Block
+              </span>
+            </>
+          )}
         </div>
       </div>
 
       {/* Main React Flow Canvas */}
-      <div className="w-full h-[460px] bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm relative">
+      <div className="w-full h-[480px] bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-sm relative">
         {paymentChain.length === 0 ? (
           <div className="w-full h-full flex flex-col items-center justify-center p-8 text-center text-on-surface-variant">
             <span className="material-symbols-outlined text-[40px] mb-2 opacity-50">link_off</span>
@@ -113,9 +151,11 @@ export default function PaymentBlockchainFlow({ paymentChain = [] }) {
             <MiniMap
               position="bottom-left"
               nodeColor={(node) => {
-                if (node.data?.statusType === 'tampered') return '#ef4444'
+                if (node.data?.severity === 'CRITICAL' || node.data?.validationStatus === 'FAIL') return '#ef4444'
+                if (node.data?.severity === 'WARNING') return '#f59e0b'
+                if (node.data?.severity === 'OK' || node.data?.validationStatus === 'PASS') return '#10b981'
                 if (node.data?.index === 0) return '#3b82f6'
-                return '#10b981'
+                return '#94a3b8'
               }}
               maskColor="rgba(241, 245, 249, 0.7)"
               className="!bg-white/90 !border !border-outline-variant !rounded-lg"
@@ -134,7 +174,7 @@ export default function PaymentBlockchainFlow({ paymentChain = [] }) {
           >
             <div
               className="bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] text-on-surface"
-              style={{ width: '92vw', maxWidth: '520px', minWidth: '280px', margin: 'auto' }}
+              style={{ width: '92vw', maxWidth: '540px', minWidth: '280px', margin: 'auto' }}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
@@ -155,29 +195,109 @@ export default function PaymentBlockchainFlow({ paymentChain = [] }) {
 
               {/* Modal Body */}
               <div className="p-5 overflow-y-auto flex flex-col gap-4 text-xs font-sans">
-                {/* Validation Status Banner */}
-                <div
-                  className={`p-3 rounded-xl border flex items-center justify-between ${
-                    !selectedBlockData.validation.isValid
-                      ? 'bg-red-50 text-red-800 border-red-300'
-                      : selectedBlockData.block.index === 0
-                      ? 'bg-blue-50 text-blue-800 border-blue-200'
-                      : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                  }`}
-                >
-                  <span className="font-bold text-sm flex items-center gap-2">
-                    {selectedBlockData.validation.isValid
-                      ? selectedBlockData.block.index === 0
-                        ? '🔵 Genesis Block'
-                        : '✅ PoA Verified'
-                      : '⚠ Tampered Block'}
-                  </span>
-                  <span className="text-[11px] font-medium opacity-80">
-                    {selectedBlockData.validation.isValid
-                      ? 'Cryptographic chain link verified'
-                      : 'Hash signature or chain link altered!'}
-                  </span>
-                </div>
+                {/* Validation Status Banner if available */}
+                {selectedBlockData.validation ? (
+                  <div
+                    className={`p-3.5 rounded-xl border flex flex-col gap-2.5 ${
+                      selectedBlockData.validation.severity === 'CRITICAL'
+                        ? 'bg-red-50 text-red-950 border-red-300'
+                        : selectedBlockData.validation.severity === 'WARNING'
+                        ? 'bg-amber-50 text-amber-950 border-amber-300'
+                        : 'bg-emerald-50 text-emerald-950 border-emerald-300'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between font-bold text-sm">
+                      <span className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[20px]">
+                          {selectedBlockData.validation.severity === 'CRITICAL'
+                            ? 'error'
+                            : selectedBlockData.validation.severity === 'WARNING'
+                            ? 'warning'
+                            : 'verified'}
+                        </span>
+                        Status:{' '}
+                        {selectedBlockData.validation.severity === 'CRITICAL'
+                          ? 'Tampered'
+                          : selectedBlockData.validation.severity === 'WARNING'
+                          ? 'Warning'
+                          : 'Healthy'}
+                      </span>
+                      <span
+                        className={`text-xs px-2.5 py-0.5 rounded-md font-bold ${
+                          selectedBlockData.validation.severity === 'CRITICAL'
+                            ? 'bg-red-200 text-red-900'
+                            : selectedBlockData.validation.severity === 'WARNING'
+                            ? 'bg-amber-200 text-amber-900'
+                            : 'bg-emerald-200 text-emerald-900'
+                        }`}
+                      >
+                        {selectedBlockData.validation.severity === 'OK'
+                          ? 'Healthy'
+                          : selectedBlockData.validation.severity === 'WARNING'
+                          ? 'Structural Issue'
+                          : 'Tampered Block'}
+                      </span>
+                    </div>
+
+                    {/* Plain English Issues List if any */}
+                    {selectedBlockData.validation.reasons && selectedBlockData.validation.reasons.length > 0 && (
+                      <div className="flex flex-col gap-1.5 pt-2 border-t border-current/20">
+                        <span className="font-bold text-[11px] uppercase tracking-wide opacity-80">Identified Issues:</span>
+                        {selectedBlockData.validation.reasons.map((r, i) => (
+                          <div key={i} className="flex items-start gap-1.5 text-[11px] font-medium leading-relaxed">
+                            <span className="material-symbols-outlined text-[13px] shrink-0 mt-0.5">chevron_right</span>
+                            <span>{r}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Plain English Detailed Checks Breakdown */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t border-current/20 text-[11px]">
+                      <div className="bg-white/70 p-2 rounded-lg border border-current/10">
+                        <span className="block opacity-75 font-semibold text-[10px]">Index Order</span>
+                        <span className={`font-bold ${selectedBlockData.validation.indexValid !== false ? 'text-emerald-700' : 'text-amber-700'}`}>
+                          {selectedBlockData.validation.indexValid !== false ? '✓ Correct' : '✕ Out of order'}
+                        </span>
+                      </div>
+                      <div className="bg-white/70 p-2 rounded-lg border border-current/10">
+                        <span className="block opacity-75 font-semibold text-[10px]">Time Order</span>
+                        <span className={`font-bold ${selectedBlockData.validation.timestampValid !== false ? 'text-emerald-700' : 'text-amber-700'}`}>
+                          {selectedBlockData.validation.timestampValid !== false ? '✓ Correct' : '✕ Reordered'}
+                        </span>
+                      </div>
+                      <div className="bg-white/70 p-2 rounded-lg border border-current/10">
+                        <span className="block opacity-75 font-semibold text-[10px]">Bank Record</span>
+                        <span className={`font-bold ${selectedBlockData.validation.transactionExists && selectedBlockData.validation.transactionMatches ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {selectedBlockData.validation.transactionExists && selectedBlockData.validation.transactionMatches ? '✓ Verified' : '✕ Mismatch'}
+                        </span>
+                      </div>
+                      <div className="bg-white/70 p-2 rounded-lg border border-current/10">
+                        <span className="block opacity-75 font-semibold text-[10px]">Digital Fingerprint</span>
+                        <span className={`font-bold ${selectedBlockData.validation.hashValid ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {selectedBlockData.validation.hashValid ? '✓ Valid' : '✕ Tampered'}
+                        </span>
+                      </div>
+                      <div className="bg-white/70 p-2 rounded-lg border border-current/10">
+                        <span className="block opacity-75 font-semibold text-[10px]">Bank Signature</span>
+                        <span className={`font-bold ${selectedBlockData.validation.signatureValid ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {selectedBlockData.validation.signatureValid ? '✓ Valid' : '✕ Invalid'}
+                        </span>
+                      </div>
+                      <div className="bg-white/70 p-2 rounded-lg border border-current/10">
+                        <span className="block opacity-75 font-semibold text-[10px]">Chain Link</span>
+                        <span className={`font-bold ${selectedBlockData.validation.linkValid ? 'text-emerald-700' : 'text-red-700'}`}>
+                          {selectedBlockData.validation.linkValid ? '✓ Intact' : '✕ Broken'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-600 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px]">info</span>
+                    <span>Validation not run on this block yet. Click 'Validate Chain' above.</span>
+                  </div>
+                )}
 
                 {/* Transaction Meta Grid */}
                 <div className="grid grid-cols-2 gap-3 bg-surface-container-low/60 border border-outline-variant/60 p-3 rounded-xl">
@@ -241,7 +361,7 @@ export default function PaymentBlockchainFlow({ paymentChain = [] }) {
                   </div>
                 </div>
 
-                {/* Signature / Authority Info if available */}
+                {/* Authority Signature */}
                 {selectedBlockData.block.signature && (
                   <div>
                     <div className="text-on-surface-variant text-[11px] font-medium mb-1">Authority Signature</div>
