@@ -173,23 +173,30 @@ const loginUser = async (req, res) => {
         if (user.role === 'admin') {
             let capturedIP = 'Unknown';
             try {
-                const xForwardedFor = req.headers ? (req.headers['x-forwarded-for'] || req.headers['x-real-ip']) : null;
-                if (xForwardedFor) {
-                    capturedIP = Array.isArray(xForwardedFor)
-                        ? xForwardedFor[0]
-                        : String(xForwardedFor).split(',')[0].trim();
+                const headers = req.headers || {};
+                const rawForwarded = headers['x-forwarded-for'] || headers['x-real-ip'] || headers['cf-connecting-ip'] || headers['x-render-origin-ip'];
+
+                if (rawForwarded) {
+                    const firstIp = Array.isArray(rawForwarded) ? rawForwarded[0] : String(rawForwarded).split(',')[0].trim();
+                    if (firstIp) capturedIP = firstIp;
                 } else if (req.ip) {
                     capturedIP = req.ip;
+                } else if (req.socket && req.socket.remoteAddress) {
+                    capturedIP = req.socket.remoteAddress;
                 }
             } catch (ipError) {
                 capturedIP = 'Unknown';
             }
+
             if (capturedIP && typeof capturedIP === 'string') {
-                capturedIP = capturedIP.replace(/^::ffff:/, '');
+                capturedIP = capturedIP.replace(/^::ffff:/, '').trim();
             }
-            if (!capturedIP || capturedIP === '::1' || capturedIP === '127.0.0.1') {
+
+            if (!capturedIP || capturedIP === '::1' || capturedIP === '127.0.0.1' || capturedIP === 'localhost') {
                 capturedIP = '127.0.0.1';
             }
+
+            console.log(`[AUTH LOG] Admin Login Recorded IP: ${capturedIP}`);
 
             const newEntry = { timestamp: new Date(), ip: String(capturedIP) };
 
