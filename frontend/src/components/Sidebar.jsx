@@ -238,6 +238,5 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
     </>
   );
 }
-}
 
 export default Sidebar;
