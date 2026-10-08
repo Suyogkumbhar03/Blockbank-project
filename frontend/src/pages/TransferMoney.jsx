@@ -231,15 +231,15 @@ export default function TransferMoney() {
       <Sidebar role="user" mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       {/* ─── Main ─── */}
-      <div className="ml-0 lg:ml-64 flex flex-col min-h-screen">
+      <div className="ml-0 md:ml-64 flex flex-col min-h-screen">
         {/* Top bar */}
-        <header className="bg-surface border-b border-outline-variant h-16 fixed top-0 right-0 left-0 lg:left-64 z-40 flex justify-between items-center px-4 lg:px-lg">
+        <header className="bg-surface border-b border-outline-variant h-16 fixed top-0 right-0 left-0 md:left-64 z-40 flex justify-between items-center px-4 md:px-lg">
           <div className="flex items-center gap-2">
             {/* Hamburger Button for Mobile & Tablet */}
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/60 shadow-xs text-xs font-bold transition-all active:scale-95"
+              className="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/60 shadow-xs text-xs font-bold transition-all active:scale-95"
               title="Open Navigation Menu"
             >
               <span className="material-symbols-outlined text-xl text-primary">menu</span>

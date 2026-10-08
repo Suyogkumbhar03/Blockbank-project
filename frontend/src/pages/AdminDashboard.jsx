@@ -338,15 +338,15 @@ function AdminDashboard() {
       <Sidebar role="admin" activeTab={activeTab} setActiveTab={setActiveTab} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col min-h-screen max-w-full overflow-hidden">
+      <main className="ml-0 md:ml-64 flex-1 flex flex-col min-h-screen max-w-full overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 border-b border-surface-variant flex items-center justify-between px-4 lg:px-8 bg-surface-container-lowest sticky top-0 z-10 shrink-0">
+        <header className="h-16 border-b border-surface-variant flex items-center justify-between px-4 md:px-8 bg-surface-container-lowest sticky top-0 z-10 shrink-0">
           <div className="flex items-center gap-2 flex-1">
             {/* Hamburger Button for Mobile & Tablet */}
             <button
               type="button"
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/60 shadow-xs text-xs font-bold transition-all active:scale-95"
+              className="md:hidden flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface border border-outline-variant/60 shadow-xs text-xs font-bold transition-all active:scale-95"
               title="Open Navigation Menu"
             >
               <span className="material-symbols-outlined text-xl text-primary">menu</span>
