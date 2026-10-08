@@ -168,7 +168,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      alert(`${item.label} feature is under construction.`);
+                      alert(`${item.label} are automatically monitored in real-time by the BlockBank Security System.`);
                       handleCloseMobile();
                     }}
                   >

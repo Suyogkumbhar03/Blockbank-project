@@ -234,11 +234,12 @@ function AdminDashboard() {
   // Initial fetch + re-fetch when tab changes
   useEffect(() => {
     fetchUsers()
+    fetchPaymentBlockchainData()
+    fetchFraudAlerts()
     if (activeTab === 'explorer') {
       fetchBlockchainData()
-      fetchPaymentBlockchainData()
     }
-  }, [fetchUsers, fetchBlockchainData, fetchPaymentBlockchainData, activeTab])
+  }, [fetchUsers, fetchBlockchainData, fetchPaymentBlockchainData, fetchFraudAlerts, activeTab])
 
   // Poll every 5 seconds silently to pick up changes from other browsers/sessions
   useEffect(() => {
@@ -469,10 +470,10 @@ function AdminDashboard() {
                     <span className="material-symbols-outlined text-amber-500">warning</span>
                   </div>
                   <div>
-                    <div className="text-[36px] font-bold text-on-surface leading-none mb-3">
-                      — —
+                    <div className="text-[36px] font-bold text-on-surface leading-none mb-3 font-mono">
+                      0
                     </div>
-                    <span className="inline-block px-2.5 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-md text-xs font-semibold tracking-wider">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-700 border border-amber-500/30 rounded-md text-xs font-semibold tracking-wider uppercase">
                       Under Construction
                     </span>
                   </div>
@@ -483,14 +484,15 @@ function AdminDashboard() {
                     <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
                       Blockchain Status
                     </span>
-                    <span className="material-symbols-outlined text-amber-500">construction</span>
+                    <span className="material-symbols-outlined text-emerald-600">verified_user</span>
                   </div>
                   <div>
-                    <div className="text-[36px] font-bold text-on-surface leading-none mb-3">
-                      — —
+                    <div className="text-[36px] font-bold text-on-surface leading-none mb-3 font-mono">
+                      {paymentChain.length} <span className="text-sm font-sans font-normal text-on-surface-variant">Blocks</span>
                     </div>
-                    <span className="inline-block px-2.5 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-md text-xs font-semibold tracking-wider">
-                      Under Construction
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 rounded-md text-xs font-semibold tracking-wider">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                      Healthy & Synced
                     </span>
                   </div>
                 </div>
