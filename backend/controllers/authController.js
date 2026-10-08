@@ -173,16 +173,21 @@ const loginUser = async (req, res) => {
         if (user.role === 'admin') {
             let capturedIP = 'Unknown';
             try {
-                if (req.ip) {
+                const xForwardedFor = req.headers ? (req.headers['x-forwarded-for'] || req.headers['x-real-ip']) : null;
+                if (xForwardedFor) {
+                    capturedIP = Array.isArray(xForwardedFor)
+                        ? xForwardedFor[0]
+                        : String(xForwardedFor).split(',')[0].trim();
+                } else if (req.ip) {
                     capturedIP = req.ip;
-                } else if (req.headers && req.headers['x-forwarded-for']) {
-                    const rawHeader = req.headers['x-forwarded-for'];
-                    capturedIP = Array.isArray(rawHeader) ? rawHeader[0] : String(rawHeader).split(',')[0].trim();
                 }
             } catch (ipError) {
                 capturedIP = 'Unknown';
             }
-            if (!capturedIP || capturedIP === '::1' || capturedIP === '::ffff:127.0.0.1') {
+            if (capturedIP && typeof capturedIP === 'string') {
+                capturedIP = capturedIP.replace(/^::ffff:/, '');
+            }
+            if (!capturedIP || capturedIP === '::1' || capturedIP === '127.0.0.1') {
                 capturedIP = '127.0.0.1';
             }
 
