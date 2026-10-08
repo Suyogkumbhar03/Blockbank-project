@@ -9,6 +9,7 @@ import { generateReport } from '../utils/generateReport.jsx'
 import PaymentBlockchainFlow from '../components/blockchain/PaymentBlockchainFlow'
 
 function AdminDashboard() {
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [activeTab, setActiveTabState] = useState(() => {
     return localStorage.getItem('adminActiveTab') || 'dashboard'
   })
@@ -334,23 +335,35 @@ function AdminDashboard() {
   return (
     <div className="min-h-screen bg-surface-container-lowest font-sans text-on-surface flex">
       {/* Shared Admin Sidebar */}
-      <Sidebar role="admin" activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Sidebar role="admin" activeTab={activeTab} setActiveTab={setActiveTab} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-h-screen max-w-full overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 border-b border-surface-variant flex items-center justify-between px-8 bg-surface-container-lowest sticky top-0 z-10 shrink-0">
-          <div className="relative w-96">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-on-surface-variant text-[20px]">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Search system logs..."
-              className="w-full bg-surface-container pl-10 pr-4 py-2 rounded-md text-sm outline-none focus:ring-1 focus:ring-primary border border-transparent focus:border-primary transition-all"
-            />
+        <header className="h-16 border-b border-surface-variant flex items-center justify-between px-4 md:px-8 bg-surface-container-lowest sticky top-0 z-10 shrink-0">
+          <div className="flex items-center gap-2 flex-1">
+            {/* Hamburger Button for Mobile */}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden p-2 rounded-lg text-on-surface hover:bg-surface-container"
+              title="Open Navigation Menu"
+            >
+              <span className="material-symbols-outlined text-2xl">menu</span>
+            </button>
+
+            <div className="relative w-full max-w-[180px] sm:max-w-xs md:w-96">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-on-surface-variant text-[20px]">
+                search
+              </span>
+              <input
+                type="text"
+                placeholder="Search..."
+                className="w-full bg-surface-container pl-10 pr-4 py-2 rounded-md text-sm outline-none focus:ring-1 focus:ring-primary border border-transparent focus:border-primary transition-all"
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2 sm:gap-6">
             <NotificationBell />
             <div className="h-6 w-px bg-surface-variant"></div>
             <button

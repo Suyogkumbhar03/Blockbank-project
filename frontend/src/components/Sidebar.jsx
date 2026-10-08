@@ -1,8 +1,12 @@
 import { Link, useLocation } from 'react-router-dom';
 import { logoutUser } from '../services/api';
 
-function Sidebar({ role = 'user', activeTab, setActiveTab }) {
+function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, setMobileOpen }) {
   const location = useLocation();
+
+  const handleCloseMobile = () => {
+    if (setMobileOpen) setMobileOpen(false);
+  };
 
   if (role === 'admin') {
     const adminNavItems = [
@@ -16,72 +20,96 @@ function Sidebar({ role = 'user', activeTab, setActiveTab }) {
     ];
 
     return (
-      <aside className="w-64 border-r border-surface-variant flex flex-col justify-between hidden md:flex sticky top-0 h-screen bg-surface-container-lowest z-50 shrink-0">
-        <div>
-          {/* Logo */}
-          <div className="h-16 flex items-center gap-3 px-6 border-b border-surface-variant">
-            <span
-              className="material-symbols-outlined text-primary text-[24px]"
-              style={{ fontVariationSettings: "'FILL' 1" }}
-            >
-              account_balance
-            </span>
-            <span className="font-bold text-lg tracking-tight text-on-surface">BlockBank</span>
+      <>
+        {/* Backdrop for mobile drawer */}
+        {mobileOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+            onClick={handleCloseMobile}
+          />
+        )}
+        <aside
+          className={`w-64 border-r border-surface-variant flex flex-col justify-between fixed md:sticky top-0 h-screen bg-surface-container-lowest z-50 shrink-0 transition-transform duration-300 ease-in-out ${
+            mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
+        >
+          <div>
+            {/* Logo & Close Button */}
+            <div className="h-16 flex items-center justify-between px-6 border-b border-surface-variant">
+              <div className="flex items-center gap-3">
+                <span
+                  className="material-symbols-outlined text-primary text-[24px]"
+                  style={{ fontVariationSettings: "'FILL' 1" }}
+                >
+                  account_balance
+                </span>
+                <span className="font-bold text-lg tracking-tight text-on-surface">BlockBank</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseMobile}
+                className="md:hidden text-on-surface-variant hover:text-on-surface p-1 rounded-md"
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+
+            {/* Navigation */}
+            <nav className="p-4 flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-140px)]">
+              {adminNavItems.map((item) => {
+                const isActive = activeTab === item.id;
+                return (
+                  <a
+                    key={item.id}
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (setActiveTab) setActiveTab(item.id);
+                      handleCloseMobile();
+                    }}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+                      isActive
+                        ? 'bg-surface-container text-on-surface font-semibold'
+                        : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                    <span className="text-sm">{item.label}</span>
+                  </a>
+                );
+              })}
+            </nav>
           </div>
 
-          {/* Navigation */}
-          <nav className="p-4 flex flex-col gap-2">
-            {adminNavItems.map((item) => {
-              const isActive = activeTab === item.id;
-              return (
-                <a
-                  key={item.id}
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (setActiveTab) setActiveTab(item.id);
-                  }}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-                    isActive
-                      ? 'bg-surface-container text-on-surface font-semibold'
-                      : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                  <span className="text-sm">{item.label}</span>
-                </a>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Bottom Actions */}
-        <div className="p-4 flex flex-col gap-2 mb-4">
-          <a
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
-              if (setActiveTab) setActiveTab('profile');
-            }}
-            className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
-              activeTab === 'profile' || activeTab === 'settings'
-                ? 'bg-surface-container text-on-surface font-semibold'
-                : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
-            }`}
-          >
-            <span className="material-symbols-outlined text-[20px]">settings</span>
-            <span className="text-sm">Settings</span>
-          </a>
-          <button
-            type="button"
-            onClick={logoutUser}
-            className="flex items-center gap-3 px-4 py-3 rounded-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors w-full text-left cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[20px]">logout</span>
-            <span className="text-sm">Logout</span>
-          </button>
-        </div>
-      </aside>
+          {/* Bottom Actions */}
+          <div className="p-4 flex flex-col gap-2 mb-4">
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                if (setActiveTab) setActiveTab('profile');
+                handleCloseMobile();
+              }}
+              className={`flex items-center gap-3 px-4 py-3 rounded-md transition-colors ${
+                activeTab === 'profile' || activeTab === 'settings'
+                  ? 'bg-surface-container text-on-surface font-semibold'
+                  : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[20px]">settings</span>
+              <span className="text-sm">Settings</span>
+            </a>
+            <button
+              type="button"
+              onClick={logoutUser}
+              className="flex items-center gap-3 px-4 py-3 rounded-md text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors w-full text-left cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[20px]">logout</span>
+              <span className="text-sm">Logout</span>
+            </button>
+          </div>
+        </aside>
+      </>
     );
   }
 
@@ -95,97 +123,121 @@ function Sidebar({ role = 'user', activeTab, setActiveTab }) {
   ];
 
   return (
-    <nav className="h-screen w-64 fixed left-0 top-0 bg-surface-container-lowest border-r border-outline-variant flex flex-col py-lg z-50">
-      <div className="px-md mb-xl flex flex-col gap-sm">
-        <div className="flex items-center gap-sm">
-          <span
-            className="material-symbols-outlined text-[24px] text-primary"
-            style={{ fontVariationSettings: "'FILL' 1" }}
+    <>
+      {/* Backdrop for mobile drawer */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={handleCloseMobile}
+        />
+      )}
+      <nav
+        className={`h-screen w-64 fixed left-0 top-0 bg-surface-container-lowest border-r border-outline-variant flex flex-col py-lg z-50 transition-transform duration-300 ease-in-out ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+      >
+        <div className="px-md mb-xl flex items-center justify-between">
+          <div className="flex items-center gap-sm">
+            <span
+              className="material-symbols-outlined text-[24px] text-primary"
+              style={{ fontVariationSettings: "'FILL' 1" }}
+            >
+              account_balance
+            </span>
+            <span className="font-sans text-lg font-bold text-on-surface tracking-tight">
+              BlockBank
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleCloseMobile}
+            className="md:hidden text-on-surface-variant hover:text-on-surface p-1 rounded-md"
           >
-            account_balance
-          </span>
-          <span className="font-sans text-lg font-bold text-on-surface tracking-tight">
-            BlockBank
-          </span>
+            <span className="material-symbols-outlined text-xl">close</span>
+          </button>
         </div>
-      </div>
 
-      <ul className="flex flex-col flex-1 px-sm gap-xs">
-        {userNavItems.map((item) => {
-          const isActive = location.pathname === item.to;
-          if (item.to === '#') {
+        <ul className="flex flex-col flex-1 px-sm gap-xs overflow-y-auto">
+          {userNavItems.map((item) => {
+            const isActive = location.pathname === item.to;
+            if (item.to === '#') {
+              return (
+                <li key={item.label}>
+                  <a
+                    className="flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container transition-colors"
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      alert(`${item.label} feature is under construction.`);
+                      handleCloseMobile();
+                    }}
+                  >
+                    <span className="material-symbols-outlined">{item.icon}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider">
+                      {item.label}
+                    </span>
+                  </a>
+                </li>
+              );
+            }
             return (
               <li key={item.label}>
-                <a
-                  className="flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container transition-colors"
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert(`${item.label} feature is under construction.`);
-                  }}
+                <Link
+                  className={`flex items-center gap-md px-md py-sm rounded ${
+                    isActive
+                      ? 'text-on-surface font-bold border-r-2 border-primary bg-surface-container transition-transform duration-100 scale-[0.98]'
+                      : 'text-on-surface-variant hover:bg-surface-container transition-colors'
+                  }`}
+                  to={item.to}
+                  onClick={handleCloseMobile}
                 >
-                  <span className="material-symbols-outlined">{item.icon}</span>
+                  <span
+                    className="material-symbols-outlined"
+                    style={isActive ? { fontVariationSettings: "'FILL' 1" } : undefined}
+                  >
+                    {item.icon}
+                  </span>
                   <span className="text-xs font-semibold uppercase tracking-wider">
                     {item.label}
                   </span>
-                </a>
+                </Link>
               </li>
             );
-          }
-          return (
-            <li key={item.label}>
-              <Link
-                className={`flex items-center gap-md px-md py-sm rounded ${
-                  isActive
-                    ? 'text-on-surface font-bold border-r-2 border-primary bg-surface-container transition-transform duration-100 scale-[0.98]'
-                    : 'text-on-surface-variant hover:bg-surface-container transition-colors'
-                }`}
-                to={item.to}
-              >
-                <span
-                  className="material-symbols-outlined"
-                  style={isActive ? { fontVariationSettings: "'FILL' 1" } : undefined}
-                >
-                  {item.icon}
-                </span>
-                <span className="text-xs font-semibold uppercase tracking-wider">
-                  {item.label}
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-        <li className="mt-auto">
-          <Link
-            className={`flex items-center gap-md px-md py-sm rounded ${
-              location.pathname === '/profile' || location.pathname === '/settings'
-                ? 'text-on-surface font-bold border-r-2 border-primary bg-surface-container transition-transform duration-100 scale-[0.98]'
-                : 'text-on-surface-variant hover:bg-surface-container transition-colors'
-            }`}
-            to="/profile"
-          >
-            <span
-              className="material-symbols-outlined"
-              style={location.pathname === '/profile' || location.pathname === '/settings' ? { fontVariationSettings: "'FILL' 1" } : undefined}
+          })}
+          <li className="mt-auto">
+            <Link
+              className={`flex items-center gap-md px-md py-sm rounded ${
+                location.pathname === '/profile' || location.pathname === '/settings'
+                  ? 'text-on-surface font-bold border-r-2 border-primary bg-surface-container transition-transform duration-100 scale-[0.98]'
+                  : 'text-on-surface-variant hover:bg-surface-container transition-colors'
+              }`}
+              to="/profile"
+              onClick={handleCloseMobile}
             >
-              settings
-            </span>
-            <span className="text-xs font-semibold uppercase tracking-wider">Settings</span>
-          </Link>
-        </li>
-        <li>
-          <button
-            type="button"
-            onClick={logoutUser}
-            className="flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container transition-colors w-full text-left cursor-pointer"
-          >
-            <span className="material-symbols-outlined">logout</span>
-            <span className="text-xs font-semibold uppercase tracking-wider">Logout</span>
-          </button>
-        </li>
-      </ul>
-    </nav>
+              <span
+                className="material-symbols-outlined"
+                style={location.pathname === '/profile' || location.pathname === '/settings' ? { fontVariationSettings: "'FILL' 1" } : undefined}
+              >
+                settings
+              </span>
+              <span className="text-xs font-semibold uppercase tracking-wider">Settings</span>
+            </Link>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={logoutUser}
+              className="flex items-center gap-md px-md py-sm rounded text-on-surface-variant hover:bg-surface-container transition-colors w-full text-left cursor-pointer"
+            >
+              <span className="material-symbols-outlined">logout</span>
+              <span className="text-xs font-semibold uppercase tracking-wider">Logout</span>
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </>
   );
+}
 }
 
 export default Sidebar;

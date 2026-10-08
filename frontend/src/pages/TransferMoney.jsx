@@ -8,6 +8,7 @@ import api from '../services/api'
 
 export default function TransferMoney() {
   const navigate = useNavigate()
+  const [mobileOpen, setMobileOpen] = useState(false)
 
   /* ---------- state ---------- */
   const [receiverId, setReceiverId] = useState('')
@@ -227,16 +228,26 @@ export default function TransferMoney() {
   return (
     <div className="font-sans antialiased min-h-screen bg-surface text-on-surface text-[14px]">
       {/* Shared User Sidebar */}
-      <Sidebar role="user" />
+      <Sidebar role="user" mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       {/* ─── Main ─── */}
-      <div className="ml-64 flex flex-col min-h-screen">
+      <div className="ml-0 md:ml-64 flex flex-col min-h-screen">
         {/* Top bar */}
-        <header className="bg-surface border-b border-outline-variant h-16 fixed top-0 right-0 left-64 z-40 flex justify-between items-center px-lg">
-          <div className="flex items-center"></div>
-          <div className="flex items-center gap-md">
+        <header className="bg-surface border-b border-outline-variant h-16 fixed top-0 right-0 left-0 md:left-64 z-40 flex justify-between items-center px-4 md:px-lg">
+          <div className="flex items-center">
+            {/* Hamburger Button for Mobile */}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden p-2 rounded-lg text-on-surface hover:bg-surface-container mr-2"
+              title="Open Navigation Menu"
+            >
+              <span className="material-symbols-outlined text-2xl">menu</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-md">
             <NotificationBell />
-            <div className="h-6 w-px bg-outline-variant mx-xs" />
+            <div className="h-6 w-px bg-outline-variant mx-1 sm:mx-xs" />
             <UserProfileButton user={user} />
           </div>
         </header>

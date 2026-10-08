@@ -7,6 +7,7 @@ import api from '../services/api'
 
 function Transactions() {
   const navigate = useNavigate()
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState('all') // all | sent | received
   const [user, setUser] = useState({
@@ -111,56 +112,66 @@ function Transactions() {
   return (
     <div className="font-sans antialiased min-h-screen flex bg-surface text-on-surface">
       {/* Shared User Sidebar */}
-      <Sidebar role="user" />
+      <Sidebar role="user" mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       {/* Main Content Area */}
-      <div className="ml-64 w-full flex flex-col min-h-screen">
+      <div className="ml-0 md:ml-64 w-full flex flex-col min-h-screen">
         {/* TopNavBar */}
-        <header className="h-16 fixed top-0 right-0 left-64 z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-lg">
+        <header className="h-16 fixed top-0 right-0 left-0 md:left-64 z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-4 md:px-lg">
           <div className="flex-1 flex items-center">
-            <div className="relative w-96">
+            {/* Hamburger Button for Mobile */}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden p-2 rounded-lg text-on-surface hover:bg-surface-container mr-2"
+              title="Open Navigation Menu"
+            >
+              <span className="material-symbols-outlined text-2xl">menu</span>
+            </button>
+
+            <div className="relative w-full max-w-[200px] sm:max-w-xs md:w-96">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">
                 search
               </span>
               <input
                 className="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded font-sans text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-tertiary-fixed-dim/10 transition-all"
-                placeholder="Search by name, ID, or description..."
+                placeholder="Search..."
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
-          <div className="flex items-center gap-md">
+          <div className="flex items-center gap-2 sm:gap-md">
             <NotificationBell />
-            <div className="h-6 w-px bg-outline-variant mx-2"></div>
+            <div className="h-6 w-px bg-outline-variant mx-1 sm:mx-2"></div>
             <UserProfileButton user={user} />
           </div>
         </header>
 
         {/* Transactions Page Canvas */}
-        <main className="flex-1 mt-16 p-margin-desktop bg-background overflow-y-auto">
+        <main className="flex-1 mt-16 p-4 sm:p-6 md:p-margin-desktop bg-background overflow-y-auto">
           <div className="max-w-[1280px] mx-auto flex flex-col gap-xl">
             {/* Header Section */}
-            <section className="flex justify-between items-end">
+            <section className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
               <div>
-                <h2 className="text-3xl font-semibold text-on-surface mb-xs">
+                <h2 className="text-2xl sm:text-3xl font-semibold text-on-surface mb-xs">
                   Transactions
                 </h2>
-                <p className="text-base text-on-surface-variant">
+                <p className="text-sm sm:text-base text-on-surface-variant">
                   View and manage your entire ledger activity history.
                 </p>
               </div>
-              <div className="flex gap-sm">
+              <div className="flex gap-sm w-full sm:w-auto">
                 <button
                   onClick={fetchHistory}
-                  className="px-md py-2 bg-surface-container-lowest border border-outline-variant text-on-surface text-xs font-semibold uppercase tracking-wider rounded hover:bg-surface-container transition-colors flex items-center gap-2 cursor-pointer"
+                  className="flex-1 sm:flex-none px-md py-2 bg-surface-container-lowest border border-outline-variant text-on-surface text-xs font-semibold uppercase tracking-wider rounded hover:bg-surface-container transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">refresh</span> Refresh
                 </button>
                 <button
                   onClick={() => navigate('/transfer')}
-                  className="px-md py-2 bg-primary text-on-primary text-xs font-semibold uppercase tracking-wider rounded hover:bg-primary/90 transition-colors flex items-center gap-2 cursor-pointer"
+                  className="flex-1 sm:flex-none px-md py-2 bg-primary text-on-primary text-xs font-semibold uppercase tracking-wider rounded hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">payments</span> Send Money
                 </button>
@@ -168,7 +179,7 @@ function Transactions() {
             </section>
 
             {/* Filter Tabs */}
-            <div className="flex gap-2 border-b border-outline-variant pb-2">
+            <div className="flex flex-wrap gap-2 border-b border-outline-variant pb-2">
               <button
                 onClick={() => setFilterType('all')}
                 className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${filterType === 'all'

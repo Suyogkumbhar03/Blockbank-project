@@ -7,6 +7,7 @@ import api from '../services/api'
 
 function Dashboard() {
   const navigate = useNavigate()
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [user, setUser] = useState({
     name: 'User',
@@ -151,35 +152,45 @@ function Dashboard() {
   return (
     <div className="font-sans antialiased min-h-screen flex bg-surface text-on-surface">
       {/* Shared User Sidebar */}
-      <Sidebar role="user" />
+      <Sidebar role="user" mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
       {/* Main Content Area */}
-      <div className="ml-64 w-full flex flex-col min-h-screen">
+      <div className="ml-0 md:ml-64 w-full flex flex-col min-h-screen">
         {/* TopNavBar */}
-        <header className="h-16 fixed top-0 right-0 left-64 z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-lg">
+        <header className="h-16 fixed top-0 right-0 left-0 md:left-64 z-40 bg-surface border-b border-outline-variant flex justify-between items-center px-4 md:px-lg">
           <div className="flex-1 flex items-center">
-            <div className="relative w-96">
+            {/* Hamburger Button for Mobile */}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(true)}
+              className="md:hidden p-2 rounded-lg text-on-surface hover:bg-surface-container mr-2"
+              title="Open Navigation Menu"
+            >
+              <span className="material-symbols-outlined text-2xl">menu</span>
+            </button>
+
+            <div className="relative w-full max-w-[200px] sm:max-w-xs md:w-96">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">
                 search
               </span>
               <input
                 className="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded font-sans text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-2 focus:ring-tertiary-fixed-dim/10 transition-all"
-                placeholder="Search transactions, accounts, or IDs..."
+                placeholder="Search..."
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
           </div>
-          <div className="flex items-center gap-md">
+          <div className="flex items-center gap-2 sm:gap-md">
             <NotificationBell />
-            <div className="h-6 w-px bg-outline-variant mx-2"></div>
+            <div className="h-6 w-px bg-outline-variant mx-1 sm:mx-2"></div>
             <UserProfileButton user={user} />
           </div>
         </header>
 
         {/* Dashboard Canvas */}
-        <main className="flex-1 mt-16 p-margin-desktop bg-background overflow-y-auto">
+        <main className="flex-1 mt-16 p-4 sm:p-6 md:p-margin-desktop bg-background overflow-y-auto">
           <div className="max-w-[1280px] mx-auto flex flex-col gap-xl">
             {/* Welcome Section */}
             <section className="flex flex-col gap-4">
