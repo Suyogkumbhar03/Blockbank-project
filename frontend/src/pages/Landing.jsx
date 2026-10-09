@@ -461,6 +461,7 @@ function Landing() {
   const [openFaqIndex, setOpenFaqIndex] = useState(null)
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
   const [isContactOpen, setIsContactOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     document.documentElement.classList.add('scroll-smooth');
@@ -547,17 +548,111 @@ function Landing() {
           <span className="material-symbols-outlined text-[28px] text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance</span>
           <span className="font-sans text-xl font-bold text-on-surface tracking-tight">BlockBank</span>
         </div>
+
+        {/* Desktop Navigation Links */}
         <div className="hidden md:flex items-center gap-lg">
           <a className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" href="#features">Features</a>
           <a className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" href="#how-it-works">How It Works</a>
           <a className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" href="#about-us">About Us</a>
           <a className="text-sm font-medium text-on-surface-variant hover:text-on-surface transition-colors" href="#faq">FAQ</a>
         </div>
-        <div className="flex items-center gap-md">
-          <Link className="hidden md:block text-sm font-medium text-on-surface hover:opacity-80 transition-opacity" to="/login">Sign In</Link>
+
+        {/* Desktop Action Buttons */}
+        <div className="hidden md:flex items-center gap-md">
+          <Link className="text-sm font-medium text-on-surface hover:opacity-80 transition-opacity" to="/login">Sign In</Link>
           <Link className="bg-primary text-on-primary text-sm font-medium px-lg py-sm rounded hover:opacity-90 transition-opacity" to="/register">Open Account</Link>
         </div>
+
+        {/* Mobile Hamburger Button */}
+        <div className="flex md:hidden items-center gap-sm">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-lg text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-colors cursor-pointer"
+            aria-label="Toggle navigation menu"
+          >
+            <span className="material-symbols-outlined text-[26px]">
+              {mobileMenuOpen ? 'close' : 'menu'}
+            </span>
+          </button>
+        </div>
       </nav>
+
+      {/* Mobile Navigation Drawer / Dropdown */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileMenuOpen(false)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+            />
+            {/* Mobile Dropdown Menu */}
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.2 }}
+              className="fixed top-16 left-0 right-0 z-40 bg-surface-container-lowest border-b border-surface-variant shadow-2xl p-6 md:hidden flex flex-col gap-3"
+            >
+              <a
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-base font-semibold text-on-surface hover:text-primary transition-colors py-2 border-b border-surface-variant/40 flex items-center justify-between"
+                href="#features"
+              >
+                <span>Features</span>
+                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
+              </a>
+              <a
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-base font-semibold text-on-surface hover:text-primary transition-colors py-2 border-b border-surface-variant/40 flex items-center justify-between"
+                href="#how-it-works"
+              >
+                <span>How It Works</span>
+                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
+              </a>
+              <a
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-base font-semibold text-on-surface hover:text-primary transition-colors py-2 border-b border-surface-variant/40 flex items-center justify-between"
+                href="#about-us"
+              >
+                <span>About Us</span>
+                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
+              </a>
+              <a
+                onClick={() => setMobileMenuOpen(false)}
+                className="text-base font-semibold text-on-surface hover:text-primary transition-colors py-2 border-b border-surface-variant/40 flex items-center justify-between"
+                href="#faq"
+              >
+                <span>FAQ</span>
+                <span className="material-symbols-outlined text-[18px] text-on-surface-variant">chevron_right</span>
+              </a>
+
+              <div className="flex flex-col gap-3 pt-3">
+                <Link
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center py-3 border border-surface-variant text-on-surface font-semibold text-sm rounded-lg hover:bg-surface-container-low transition-colors flex items-center justify-center gap-2"
+                  to="/login"
+                >
+                  <span className="material-symbols-outlined text-[18px]">login</span>
+                  <span>Sign In</span>
+                </Link>
+                <Link
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center py-3 bg-primary text-on-primary font-semibold text-sm rounded-lg hover:opacity-90 transition-opacity shadow-sm flex items-center justify-center gap-2"
+                  to="/register"
+                >
+                  <span className="material-symbols-outlined text-[18px]">person_add</span>
+                  <span>Open Account</span>
+                </Link>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Hero Section */}
       <header className="pt-32 pb-2xl px-margin-mobile md:px-margin-desktop min-h-[90vh] flex flex-col justify-center relative overflow-hidden">
