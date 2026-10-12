@@ -5,7 +5,10 @@ const {
     verifyPin,
     verifyPaymentId,
     transferMoney,
-    getTransactionHistory
+    cancelTransfer,
+    getTransactionHistory,
+    getMyFraudAlerts,
+    selfFreezeAccount
 } = require('../controllers/transferController');
 
 // All transfer routes require authentication
@@ -14,6 +17,9 @@ router.use(verifyToken);
 router.post('/verify-pin', verifyPin);
 router.get('/verify/:paymentId', verifyPaymentId);
 router.post('/', transferMoney);
+router.post('/cancel', cancelTransfer);
 router.get('/history', getTransactionHistory);
+router.get('/fraud-alerts', getMyFraudAlerts);
+router.post('/self-freeze', selfFreezeAccount);
 
 module.exports = router;

@@ -14,7 +14,8 @@ const transactionSchema = new mongoose.Schema({
     receiverName: { type: String, required: true },
     amount: { type: Number, required: true },
     note: { type: String, default: '' },
-    status: { type: String, enum: ['success', 'failed'], default: 'success' },
+    status: { type: String, enum: ['completed', 'cancelled', 'success', 'failed'], default: 'completed' },
+    cancelReason: { type: String, default: '' },
     timestamp: { type: Date, default: Date.now }
 }, { timestamps: true });
 

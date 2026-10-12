@@ -2,7 +2,9 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const bcrypt = require('bcrypt');
 const Notification = require('../models/Notification');
+const FraudAlert = require('../models/FraudAlert');
 const { addPaymentBlock } = require('../utils/paymentBlockchain');
+const { checkFraud } = require('../utils/fraudDetection');
 
 // Helper for PIN verification and attempt/lockout tracking
 const verifyAndTrackPin = async (user, pin) => {
@@ -46,8 +48,7 @@ const verifyAndTrackPin = async (user, pin) => {
         return handleWrongPin(user);
     }
 
-    // Correct PIN — reset counters
-    user.pinAttempts = 0;
+    // Correct PIN — clear lockout if any, preserve pinAttempts for transfer fraud detection
     user.pinLockedUntil = null;
     await user.save({ validateModifiedOnly: true });
 
@@ -142,7 +143,7 @@ const verifyPaymentId = async (req, res) => {
 // TASK 3: Transfer endpoint controller
 const transferMoney = async (req, res) => {
     try {
-        const { receiverPaymentId, amount, note, pin } = req.body;
+        const { receiverPaymentId, amount, note, pin, userConfirmedFraud } = req.body;
 
         // 1. Fetch sender document
         const sender = await User.findById(req.user.id);
@@ -191,6 +192,75 @@ const transferMoney = async (req, res) => {
         // 5. Check sender has sufficient balance (pre-check)
         if (sender.balance < numericAmount) {
             return res.status(400).json({ message: 'Insufficient balance' });
+        }
+
+        // Read pinAttempts from sender and save before reset, then reset to 0
+        const pinAttemptsBefore = sender.pinAttempts || 0;
+        sender.pinAttempts = 0;
+        await sender.save({ validateModifiedOnly: true });
+
+        // Fraud detection check: skip if user confirmed after fraud warning
+        if (!userConfirmedFraud) {
+            // Calculate sender account age in hours
+            const approvedTime = sender.approvedAt
+                ? new Date(sender.approvedAt).getTime()
+                : (sender.createdAt ? new Date(sender.createdAt).getTime() : Date.now());
+            const accountAgeHours = (Date.now() - approvedTime) / (1000 * 60 * 60);
+
+            const fraudResult = await checkFraud({
+                senderPaymentId: sender.paymentId,
+                receiverPaymentId: receiver.paymentId,
+                amount: numericAmount,
+                senderAccountAge: accountAgeHours,
+                timestamp: new Date()
+            }, pinAttemptsBefore);
+
+            if (fraudResult.isFraud) {
+                let fraudAlertId = null;
+                try {
+                    const fraudAlert = new FraudAlert({
+                        alertType: 'transaction_fraud',
+                        userId: sender._id,
+                        senderPaymentId: sender.paymentId,
+                        receiverPaymentId: receiver.paymentId,
+                        senderName: sender.name,
+                        receiverName: receiver.name,
+                        amount: numericAmount,
+                        triggeredRules: fraudResult.triggeredRules,
+                        userAction: 'pending',
+                        message: `Transfer of ₹${numericAmount} to ${receiver.name} (${receiver.paymentId}) flagged: ${fraudResult.triggeredRules.join('; ')}`,
+                        severity: numericAmount > 50000 || fraudResult.triggeredRules.length >= 2 ? 'critical' : 'high',
+                        detectedAt: new Date()
+                    });
+                    await fraudAlert.save();
+                    fraudAlertId = fraudAlert._id;
+                } catch (alertErr) {
+                    console.error('Failed to create FraudAlert document:', alertErr);
+                }
+
+                return res.status(200).json({
+                    requiresConfirmation: true,
+                    fraudAlertId,
+                    triggeredRules: fraudResult.triggeredRules,
+                    message: "Suspicious activity detected. Please confirm to proceed."
+                });
+            }
+        } else {
+            // User confirmed proceeding despite warning: update FraudAlert record
+            try {
+                const { fraudAlertId } = req.body;
+                if (fraudAlertId) {
+                    await FraudAlert.findByIdAndUpdate(fraudAlertId, { userAction: 'overridden_by_user' });
+                } else {
+                    await FraudAlert.findOneAndUpdate(
+                        { userId: sender._id, userAction: 'pending' },
+                        { userAction: 'overridden_by_user' },
+                        { sort: { detectedAt: -1 } }
+                    );
+                }
+            } catch (err) {
+                console.error('Failed to update FraudAlert on override:', err);
+            }
         }
 
         // 6. ATOMIC BALANCE TRANSFER (Isolation & Concurrency Protection)
@@ -245,7 +315,8 @@ const transferMoney = async (req, res) => {
             receiverName: receiver.name,
             amount: numericAmount,
             note: note ? note.trim() : '',
-            status: 'success',
+            status: 'completed',
+            cancelReason: '',
             timestamp: new Date()
         });
 
@@ -322,7 +393,9 @@ const getTransactionHistory = async (req, res) => {
                 amount: tx.amount,
                 note: tx.note,
                 status: tx.status,
+                cancelReason: tx.cancelReason || '',
                 timestamp: tx.timestamp,
+                createdAt: tx.createdAt,
                 direction: isSender ? 'sent' : 'received'
             };
         });
@@ -333,9 +406,127 @@ const getTransactionHistory = async (req, res) => {
     }
 };
 
+// Cancel transfer endpoint controller
+const cancelTransfer = async (req, res) => {
+    try {
+        const { transactionId, senderPaymentId, receiverPaymentId, amount, reason } = req.body;
+
+        const sender = await User.findById(req.user.id);
+        let receiver = null;
+        if (receiverPaymentId) {
+            receiver = await User.findOne({ paymentId: receiverPaymentId.trim() });
+        }
+
+        const randomSuffix = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const timeSuffix = Date.now().toString(36).toUpperCase();
+        const txId = transactionId || `TX-${randomSuffix}${timeSuffix}`;
+
+        const cancelledTx = new Transaction({
+            transactionId: txId,
+            senderAccount: sender?.accountNumber || '',
+            receiverAccount: receiver?.accountNumber || '',
+            senderPaymentId: sender?.paymentId || senderPaymentId || 'Unknown',
+            receiverPaymentId: receiver?.paymentId || receiverPaymentId || 'Unknown',
+            senderName: sender?.name || 'Unknown',
+            receiverName: receiver?.name || 'Unknown',
+            amount: Number(amount) || 0,
+            note: reason || 'User cancelled after fraud warning',
+            status: 'cancelled',
+            cancelReason: 'Suspicious activity detected — cancelled by user',
+            timestamp: new Date()
+        });
+
+        await cancelledTx.save();
+
+        // Update FraudAlert document if recorded
+        try {
+            const { fraudAlertId } = req.body;
+            if (fraudAlertId) {
+                await FraudAlert.findByIdAndUpdate(fraudAlertId, { userAction: 'cancelled_by_user' });
+            } else if (sender) {
+                await FraudAlert.findOneAndUpdate(
+                    { userId: sender._id, userAction: 'pending' },
+                    { userAction: 'cancelled_by_user' },
+                    { sort: { detectedAt: -1 } }
+                );
+            }
+        } catch (alertErr) {
+            console.error('Failed to update FraudAlert on cancellation:', alertErr);
+        }
+
+        return res.status(200).json({
+            message: 'Transfer cancelled successfully',
+            transaction: cancelledTx
+        });
+    } catch (error) {
+        return res.status(500).json({ message: 'Server error cancelling transfer', error: error.message });
+    }
+};
+
+// GET /api/transfer/fraud-alerts
+// Returns current user's security & fraud alerts
+const getMyFraudAlerts = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const alerts = await FraudAlert.find({
+            $or: [
+                { userId: user._id },
+                { senderPaymentId: user.paymentId }
+            ]
+        }).sort({ detectedAt: -1 });
+
+        return res.status(200).json(alerts);
+    } catch (error) {
+        return res.status(500).json({ message: 'Server error fetching fraud alerts', error: error.message });
+    }
+};
+
+// POST /api/transfer/self-freeze
+// Allows user to freeze their own account immediately if they suspect compromise
+const selfFreezeAccount = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        if (user.isFrozen) {
+            return res.status(400).json({ message: 'Account is already frozen' });
+        }
+
+        user.isFrozen = true;
+        user.frozenAt = new Date();
+        await user.save();
+
+        try {
+            const notification = new Notification({
+                userId: user._id,
+                message: "You have temporarily frozen your account for security protection. Transfers are locked.",
+                type: 'account_frozen'
+            });
+            await notification.save();
+        } catch (notifErr) {
+            console.error('Failed to create self-freeze notification:', notifErr);
+        }
+
+        return res.status(200).json({
+            message: 'Account successfully locked for your security. Transfers are now disabled.',
+            isFrozen: true
+        });
+    } catch (error) {
+        return res.status(500).json({ message: 'Server error freezing account', error: error.message });
+    }
+};
+
 module.exports = {
     verifyPin,
     verifyPaymentId,
     transferMoney,
-    getTransactionHistory
+    cancelTransfer,
+    getTransactionHistory,
+    getMyFraudAlerts,
+    selfFreezeAccount
 };

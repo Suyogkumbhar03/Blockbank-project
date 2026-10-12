@@ -90,11 +90,12 @@ function Transactions() {
     })
   }
 
-  // Filter transactions by search query and type (all / sent / received)
+  // Filter transactions by search query and type (all / sent / received / cancelled)
   const filteredTransactions = transactions.filter((tx) => {
     // Type filter
     if (filterType === 'sent' && tx.direction !== 'sent') return false
     if (filterType === 'received' && tx.direction !== 'received') return false
+    if (filterType === 'cancelled' && tx.status !== 'cancelled') return false
 
     // Search query filter
     if (!searchQuery.trim()) return true
@@ -105,6 +106,8 @@ function Transactions() {
       (tx.senderPaymentId || '').toLowerCase().includes(q) ||
       (tx.receiverPaymentId || '').toLowerCase().includes(q) ||
       (tx.note || '').toLowerCase().includes(q) ||
+      (tx.cancelReason || '').toLowerCase().includes(q) ||
+      (tx.status || '').toLowerCase().includes(q) ||
       (tx.transactionId || '').toLowerCase().includes(q)
     )
   })
@@ -208,6 +211,15 @@ function Transactions() {
               >
                 Received ({transactions.filter((t) => t.direction === 'received').length})
               </button>
+              <button
+                onClick={() => setFilterType('cancelled')}
+                className={`px-4 py-2 text-xs font-semibold rounded transition-colors cursor-pointer ${filterType === 'cancelled'
+                    ? 'bg-red-700 text-white'
+                    : 'text-red-700 hover:bg-red-50'
+                  }`}
+              >
+                Cancelled ({transactions.filter((t) => t.status === 'cancelled').length})
+              </button>
             </div>
 
             {/* Transaction History Table */}
@@ -280,7 +292,17 @@ function Transactions() {
 
                             {/* Description / Note */}
                             <td className="p-md text-xs text-on-surface-variant">
-                              {tx.note || (isSent ? `Transfer to ${otherPartyName}` : `Received from ${otherPartyName}`)}
+                              {tx.status === 'cancelled' ? (
+                                <div className="flex flex-col">
+                                  <span className="text-red-700 font-semibold flex items-center gap-1">
+                                    <span className="material-symbols-outlined text-[15px] text-red-500 shrink-0">warning</span>
+                                    {tx.cancelReason || 'Suspicious activity detected — cancelled by user'}
+                                  </span>
+                                  {tx.note && <span className="text-gray-400 text-[11px] mt-0.5">{tx.note}</span>}
+                                </div>
+                              ) : (
+                                tx.note || (isSent ? `Transfer to ${otherPartyName}` : `Received from ${otherPartyName}`)
+                              )}
                             </td>
 
                             {/* Amount */}
@@ -295,9 +317,21 @@ function Transactions() {
 
                             {/* Status */}
                             <td className="p-md text-center">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200 uppercase">
-                                Success
-                              </span>
+                              {tx.status === 'cancelled' ? (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700 border border-red-300 uppercase shadow-sm">
+                                    <span className="material-symbols-outlined text-[13px]">cancel</span>
+                                    Cancelled
+                                  </span>
+                                  <span className="text-[10px] text-red-600 font-medium text-center leading-tight mt-0.5 max-w-[150px]">
+                                    {tx.cancelReason || 'Suspicious activity detected — cancelled by user'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200 uppercase">
+                                  Success
+                                </span>
+                              )}
                             </td>
                           </tr>
                         )

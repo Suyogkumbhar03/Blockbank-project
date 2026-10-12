@@ -418,7 +418,14 @@ function Dashboard() {
 
                             {/* Description / Note */}
                             <td className="p-md text-xs text-on-surface-variant">
-                              {tx.note || (isSent ? `Transfer to ${otherPartyName}` : `Received from ${otherPartyName}`)}
+                              {tx.status === 'cancelled' ? (
+                                <span className="text-red-700 font-semibold flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[14px] text-red-500">warning</span>
+                                  {tx.cancelReason || 'Suspicious activity detected — cancelled by user'}
+                                </span>
+                              ) : (
+                                tx.note || (isSent ? `Transfer to ${otherPartyName}` : `Received from ${otherPartyName}`)
+                              )}
                             </td>
 
                             {/* Amount */}
@@ -433,9 +440,15 @@ function Dashboard() {
 
                             {/* Status */}
                             <td className="p-md text-center">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200 uppercase">
-                                Success
-                              </span>
+                              {tx.status === 'cancelled' ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700 border border-red-300 uppercase shadow-sm">
+                                  Cancelled
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200 uppercase">
+                                  Success
+                                </span>
+                              )}
                             </td>
                           </tr>
                         )

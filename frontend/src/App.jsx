@@ -10,6 +10,7 @@ import TransferSuccess from './pages/TransferSuccess'
 import Profile from './pages/Profile'
 import Transactions from './pages/Transactions'
 import Balance from './pages/Balance'
+import FraudAlerts from './pages/FraudAlerts'
 import ProtectedRoute from './components/ProtectedRoute'
 import AppShell from './components/AppShell'
 
@@ -87,15 +88,23 @@ function App() {
               <ProtectedRoute>
                 <Transactions />
               </ProtectedRoute>
-            } 
+            }
           />
-          <Route 
-            path="/success" 
+          <Route
+            path="/fraud-alerts"
+            element={
+              <ProtectedRoute>
+                <FraudAlerts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/success"
             element={
               <ProtectedRoute>
                 <TransferSuccess />
               </ProtectedRoute>
-            } 
+            }
           />
         </Routes>
       </AppShell>

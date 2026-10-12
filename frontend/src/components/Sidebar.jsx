@@ -119,7 +119,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
     { label: 'Account Balance', to: '/balance', icon: 'account_balance_wallet' },
     { label: 'Transfer Money', to: '/transfer', icon: 'payments' },
     { label: 'Transactions', to: '/transactions', icon: 'receipt_long' },
-    { label: 'Fraud Alerts', to: '#', icon: 'gpp_maybe' },
+    { label: 'Fraud Alerts', to: '/fraud-alerts', icon: 'gpp_maybe' },
   ];
 
   return (

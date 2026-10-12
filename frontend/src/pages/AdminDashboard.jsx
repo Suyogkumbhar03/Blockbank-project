@@ -50,6 +50,12 @@ function AdminDashboard() {
   // Approve Users sub-tab state
   const [approveSubTab, setApproveSubTab] = useState('pending') // 'pending' | 'rejected'
 
+  // Fraud Monitoring state
+  const [loadingFraudAlerts, setLoadingFraudAlerts] = useState(false)
+  const [fraudFilter, setFraudFilter] = useState('all') // 'all' | 'unresolved' | 'transaction' | 'tamper' | 'resolved'
+  const [fraudSearch, setFraudSearch] = useState('')
+  const [actionLoadingId, setActionLoadingId] = useState(null)
+
   useEffect(() => {
     const loadAdminName = () => {
       try {
@@ -109,12 +115,15 @@ function AdminDashboard() {
     }
   }, [])
 
-  const fetchFraudAlerts = useCallback(async () => {
+  const fetchFraudAlerts = useCallback(async (silent = false) => {
     try {
+      if (!silent) setLoadingFraudAlerts(true)
       const alertsRes = await api.get('/admin/blockchain/fraud-alerts')
       setFraudAlerts(alertsRes.data || [])
     } catch (error) {
       console.error('Failed to fetch fraud alerts', error)
+    } finally {
+      if (!silent) setLoadingFraudAlerts(false)
     }
   }, [])
 
@@ -236,10 +245,47 @@ function AdminDashboard() {
     fetchUsers()
     fetchPaymentBlockchainData()
     fetchFraudAlerts()
-    if (activeTab === 'explorer') {
-      fetchBlockchainData()
-    }
+    fetchBlockchainData()
   }, [fetchUsers, fetchBlockchainData, fetchPaymentBlockchainData, fetchFraudAlerts, activeTab])
+
+  const handleResolveFraudAlert = async (alertId) => {
+    try {
+      setActionLoadingId(alertId)
+      await api.put(`/admin/blockchain/fraud-alerts/${alertId}/resolve`)
+      await fetchFraudAlerts(true)
+    } catch (error) {
+      console.error('Failed to resolve fraud alert', error)
+      alert(error.response?.data?.message || 'Failed to resolve fraud alert')
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const handleFreezeUserFromAlert = async (userId, userName) => {
+    if (!userId) return
+    const confirmed = window.confirm(
+      `Are you sure you want to FREEZE account for "${userName || 'this user'}"? They will be immediately blocked from initiating transfers.`
+    )
+    if (!confirmed) return
+
+    try {
+      setActionLoadingId(userId)
+      const res = await api.put(`/admin/freeze/${userId}`)
+      await fetchUsers(true)
+      alert(res.data?.message || 'User account frozen successfully')
+    } catch (error) {
+      console.error('Failed to freeze user', error)
+      alert(error.response?.data?.message || 'Failed to freeze user account')
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
+
+  const isUserFrozen = (userId) => {
+    if (!userId) return false
+    const u = approvedUsers.find(user => String(user._id || user.id) === String(userId))
+    return Boolean(u?.isFrozen)
+  }
 
   // Poll every 5 seconds silently to pick up changes from other browsers/sessions
   useEffect(() => {
@@ -467,15 +513,29 @@ function AdminDashboard() {
                     <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
                       Active Fraud Alerts
                     </span>
-                    <span className="material-symbols-outlined text-amber-500">warning</span>
+                    <span
+                      className={`material-symbols-outlined ${
+                        fraudAlerts.filter(a => !a.resolved).length > 0 ? 'text-error' : 'text-emerald-500'
+                      }`}
+                    >
+                      {fraudAlerts.filter(a => !a.resolved).length > 0 ? 'warning' : 'verified_user'}
+                    </span>
                   </div>
                   <div>
-                    <div className="text-[36px] font-bold text-on-surface leading-none mb-3 font-mono">
-                      0
+                    <div className="text-[40px] font-bold text-on-surface leading-none mb-3">
+                      {fraudAlerts.filter(a => !a.resolved).length}
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 text-amber-700 border border-amber-500/30 rounded-md text-xs font-semibold tracking-wider uppercase">
-                      Under Construction
-                    </span>
+                    <button
+                      onClick={() => setActiveTab('fraud')}
+                      className="flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer"
+                    >
+                      <span>
+                        {fraudAlerts.filter(a => !a.resolved).length > 0
+                          ? 'Action required'
+                          : 'All threats clear'}
+                      </span>
+                      <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </button>
                   </div>
                 </div>
 
@@ -484,16 +544,30 @@ function AdminDashboard() {
                     <span className="text-xs font-semibold tracking-wider text-on-surface-variant uppercase">
                       Blockchain Status
                     </span>
-                    <span className="material-symbols-outlined text-emerald-600">verified_user</span>
+                    <span
+                      className={`material-symbols-outlined ${
+                        validationResult?.valid ? 'text-emerald-600' : 'text-error'
+                      }`}
+                    >
+                      {validationResult?.valid ? 'verified_user' : 'crisis_alert'}
+                    </span>
                   </div>
                   <div>
                     <div className="text-[36px] font-bold text-on-surface leading-none mb-3 font-mono">
                       {paymentChain.length} <span className="text-sm font-sans font-normal text-on-surface-variant">Blocks</span>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 rounded-md text-xs font-semibold tracking-wider">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-                      Healthy & Synced
-                    </span>
+                    <button
+                      onClick={() => setActiveTab('explorer')}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold tracking-wider cursor-pointer transition-colors ${
+                        validationResult?.valid
+                          ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20'
+                          : 'bg-error/10 text-error border border-error/30 hover:bg-error/20'
+                      }`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${validationResult?.valid ? 'bg-emerald-600' : 'bg-error'} animate-pulse`}></span>
+                      <span>{validationResult?.valid ? 'Healthy & Synced' : 'Tamper Detected'}</span>
+                      <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1262,20 +1336,539 @@ function AdminDashboard() {
           )}
 
 
-          {activeTab === 'fraud' && (
-            <div className="w-full flex items-center justify-center py-12">
-              <div className="w-full max-w-[460px] bg-surface-container-lowest border border-outline-variant rounded-xl p-8 shadow-sm text-center flex flex-col items-center">
-                <div className="w-14 h-14 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4">
-                  <span className="material-symbols-outlined text-amber-500 text-[28px]">warning</span>
+          {activeTab === 'fraud' && (() => {
+            const totalFraudCount = fraudAlerts.length
+            const unresolvedFraudCount = fraudAlerts.filter(a => !a.resolved).length
+            const resolvedFraudCount = fraudAlerts.filter(a => a.resolved).length
+            const txFraudCount = fraudAlerts.filter(
+              a => a.alertType === 'transaction_fraud' || (a.triggeredRules && a.triggeredRules.length > 0)
+            ).length
+            const tamperFraudCount = fraudAlerts.filter(
+              a => a.alertType === 'blockchain_tamper' || (a.blockIndex !== null && a.blockIndex !== undefined)
+            ).length
+
+            const filteredAlerts = fraudAlerts.filter((alert) => {
+              const isTamper = Boolean(
+                alert.alertType === 'blockchain_tamper' ||
+                (alert.blockIndex !== null && alert.blockIndex !== undefined)
+              )
+              const isTx = Boolean(
+                alert.alertType === 'transaction_fraud' ||
+                (!isTamper && alert.triggeredRules && alert.triggeredRules.length > 0)
+              )
+
+              if (fraudFilter === 'unresolved' && alert.resolved) return false
+              if (fraudFilter === 'resolved' && !alert.resolved) return false
+              if (fraudFilter === 'transaction' && !isTx) return false
+              if (fraudFilter === 'tamper' && !isTamper) return false
+
+              if (fraudSearch.trim()) {
+                const q = fraudSearch.toLowerCase()
+                const searchTarget = [
+                  alert.senderName,
+                  alert.senderPaymentId,
+                  alert.receiverName,
+                  alert.receiverPaymentId,
+                  alert.message,
+                  alert.type,
+                  alert.blockIndex !== null && alert.blockIndex !== undefined ? `block #${alert.blockIndex}` : '',
+                  ...(alert.triggeredRules || []),
+                  ...(alert.changedFields || [])
+                ].filter(Boolean).join(' ').toLowerCase()
+
+                return searchTarget.includes(q)
+              }
+
+              return true
+            })
+
+            return (
+              <div className="space-y-6">
+                {/* Header & Surveillance Status */}
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-2">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h1 className="text-2xl font-bold text-on-surface">Fraud Detection & Security Center</h1>
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/20">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        Real-Time Surveillance Active
+                      </span>
+                    </div>
+                    <p className="text-sm text-on-surface-variant mt-1">
+                      Automated 7-rule transaction fraud analysis and cryptographic ledger tamper surveillance.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => fetchFraudAlerts()}
+                      disabled={loadingFraudAlerts}
+                      className="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-sm font-medium text-on-surface hover:bg-surface-container transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <span className={`material-symbols-outlined text-[18px] ${loadingFraudAlerts ? 'animate-spin' : ''}`}>
+                        refresh
+                      </span>
+                      <span>{loadingFraudAlerts ? 'Updating...' : 'Refresh Feed'}</span>
+                    </button>
+                  </div>
                 </div>
-                <h2 className="text-xl font-bold text-on-surface mb-1">Fraud Alerts</h2>
-                <p className="text-sm text-on-surface-variant mb-4">This section is currently under construction.</p>
-                <span className="inline-block px-3 py-1 bg-amber-500/10 text-amber-600 border border-amber-500/30 rounded-full text-xs font-semibold uppercase tracking-wider">
-                  Under Construction
-                </span>
+
+                {/* Top Security Banner */}
+                <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-surface-container-lowest to-surface-container-lowest p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-primary text-[28px]">shield</span>
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-on-surface">Rule Engine & Cryptographic Integrity Protection</h3>
+                      <p className="text-xs text-on-surface-variant mt-0.5">
+                        Surveillance monitors velocity limits (3 transfers/10m), high-value flags (&gt;₹50,000), new account limits (&lt;24h), failed PIN threshold (3+), self-transfers, round numbers, and SHA-256 block hash consistency.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="px-3 py-1.5 rounded-lg bg-surface-container text-xs font-semibold text-on-surface border border-outline-variant">
+                      Surveillance Engine: <strong>7 AI Rules Active</strong>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Metric Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between text-on-surface-variant mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider">Total Incidents</span>
+                      <span className="material-symbols-outlined text-[20px]">dataset</span>
+                    </div>
+                    <div className="text-3xl font-bold text-on-surface">{totalFraudCount}</div>
+                    <p className="text-xs text-on-surface-variant mt-1">Logged across all operations</p>
+                  </div>
+
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between text-on-surface-variant mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider">Requires Action</span>
+                      <span
+                        className={`material-symbols-outlined text-[20px] ${
+                          unresolvedFraudCount > 0 ? 'text-amber-500' : 'text-emerald-500'
+                        }`}
+                      >
+                        {unresolvedFraudCount > 0 ? 'warning' : 'check_circle'}
+                      </span>
+                    </div>
+                    <div className={`text-3xl font-bold ${unresolvedFraudCount > 0 ? 'text-amber-600' : 'text-on-surface'}`}>
+                      {unresolvedFraudCount}
+                    </div>
+                    <p className="text-xs text-on-surface-variant mt-1">Unresolved incident investigations</p>
+                  </div>
+
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between text-on-surface-variant mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider">Transaction Flags</span>
+                      <span className="material-symbols-outlined text-[20px] text-primary">payments</span>
+                    </div>
+                    <div className="text-3xl font-bold text-on-surface">{txFraudCount}</div>
+                    <p className="text-xs text-on-surface-variant mt-1">7-Rule transfer anomaly detections</p>
+                  </div>
+
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm">
+                    <div className="flex items-center justify-between text-on-surface-variant mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wider">Ledger Tampering</span>
+                      <span
+                        className={`material-symbols-outlined text-[20px] ${
+                          tamperFraudCount > 0 ? 'text-error' : 'text-on-surface-variant'
+                        }`}
+                      >
+                        link_off
+                      </span>
+                    </div>
+                    <div className={`text-3xl font-bold ${tamperFraudCount > 0 ? 'text-error' : 'text-on-surface'}`}>
+                      {tamperFraudCount}
+                    </div>
+                    <p className="text-xs text-on-surface-variant mt-1">Cryptographic blockchain anomalies</p>
+                  </div>
+                </div>
+
+                {/* Filter Tabs and Search Bar */}
+                <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      onClick={() => setFraudFilter('all')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        fraudFilter === 'all'
+                          ? 'bg-primary text-white shadow-sm'
+                          : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
+                      }`}
+                    >
+                      All Alerts ({totalFraudCount})
+                    </button>
+                    <button
+                      onClick={() => setFraudFilter('unresolved')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        fraudFilter === 'unresolved'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
+                      }`}
+                    >
+                      Action Needed ({unresolvedFraudCount})
+                    </button>
+                    <button
+                      onClick={() => setFraudFilter('transaction')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        fraudFilter === 'transaction'
+                          ? 'bg-primary text-white shadow-sm'
+                          : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
+                      }`}
+                    >
+                      Transaction Flags ({txFraudCount})
+                    </button>
+                    <button
+                      onClick={() => setFraudFilter('tamper')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        fraudFilter === 'tamper'
+                          ? 'bg-error text-white shadow-sm'
+                          : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
+                      }`}
+                    >
+                      Ledger Tamper ({tamperFraudCount})
+                    </button>
+                    <button
+                      onClick={() => setFraudFilter('resolved')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        fraudFilter === 'resolved'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
+                      }`}
+                    >
+                      Resolved ({resolvedFraudCount})
+                    </button>
+                  </div>
+
+                  <div className="relative w-full md:w-72">
+                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">
+                      search
+                    </span>
+                    <input
+                      type="text"
+                      value={fraudSearch}
+                      onChange={(e) => setFraudSearch(e.target.value)}
+                      placeholder="Search sender, receiver, rules..."
+                      className="w-full pl-9 pr-3 py-1.5 text-xs bg-surface-container border border-outline-variant rounded-lg outline-none focus:ring-1 focus:ring-primary focus:border-primary text-on-surface"
+                    />
+                    {fraudSearch && (
+                      <button
+                        onClick={() => setFraudSearch('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface text-xs"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Alerts Feed */}
+                {loadingFraudAlerts && fraudAlerts.length === 0 ? (
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-12 text-center">
+                    <div className="inline-block w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mb-3"></div>
+                    <p className="text-sm text-on-surface-variant">Scanning fraud and tampering logs...</p>
+                  </div>
+                ) : filteredAlerts.length === 0 ? (
+                  <div className="bg-surface-container-lowest border border-outline-variant rounded-xl p-12 text-center">
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                      <span className="material-symbols-outlined text-emerald-600 text-[32px]">verified_user</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-on-surface mb-1">No Fraud Alerts Found</h3>
+                    <p className="text-sm text-on-surface-variant max-w-[460px] mx-auto">
+                      {fraudSearch
+                        ? `No incidents matched "${fraudSearch}". Try clearing your search keyword.`
+                        : 'All transactions and cryptographic ledger blocks are verified and within safe operational parameters.'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredAlerts.map((alert) => {
+                      const isTamper = Boolean(
+                        alert.alertType === 'blockchain_tamper' ||
+                        (alert.blockIndex !== null && alert.blockIndex !== undefined)
+                      )
+                      const isResolved = Boolean(alert.resolved)
+                      const userIsFrozen = alert.userId ? isUserFrozen(alert.userId) : false
+                      const isLoadingThis = actionLoadingId === alert._id || actionLoadingId === alert.userId
+
+                      const cleanReasons = (alert.triggeredRules && alert.triggeredRules.length > 0)
+                        ? alert.triggeredRules
+                        : [alert.message ? alert.message.replace(/: Please confirm this was you\.?/i, '') : 'Suspicious transfer activity flagged']
+
+                      return (
+                        <div
+                          key={alert._id}
+                          className={`bg-surface-container-lowest border rounded-2xl shadow-sm transition-all hover:shadow-md overflow-hidden ${
+                            isResolved
+                              ? 'border-outline-variant/60 opacity-90'
+                              : isTamper
+                              ? 'border-error/40'
+                              : 'border-amber-500/30'
+                          }`}
+                        >
+                          {/* Card Header */}
+                          <div className="p-5 sm:p-6 border-b border-outline-variant/40 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-surface-container-low/30">
+                            <div className="flex items-start gap-3.5">
+                              {/* Alert Icon Avatar */}
+                              <div
+                                className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${
+                                  isTamper
+                                    ? 'bg-error/10 text-error border-error/20'
+                                    : 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                                }`}
+                              >
+                                <span className="material-symbols-outlined text-[24px]">
+                                  {isTamper ? 'link_off' : 'gpp_bad'}
+                                </span>
+                              </div>
+
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2 mb-1">
+                                  <h3 className="text-base font-bold text-on-surface">
+                                    {isTamper
+                                      ? `Blockchain Ledger Tamper on Block #${alert.blockIndex}`
+                                      : `Flagged Transfer: ₹${Number(alert.amount || 0).toLocaleString('en-IN')} to ${alert.receiverName || 'Recipient'}`}
+                                  </h3>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2 text-xs text-on-surface-variant">
+                                  <span className="font-mono">Ref: {alert._id ? alert._id.slice(-8) : 'N/A'}</span>
+                                  <span>•</span>
+                                  <span>{formatBlockTime(alert.detectedAt || alert.createdAt)}</span>
+                                  {!isTamper && alert.senderName && (
+                                    <>
+                                      <span>•</span>
+                                      <span>
+                                        Sender: <strong className="text-on-surface">{alert.senderName}</strong>{' '}
+                                        <span className="font-mono text-[11px]">({alert.senderPaymentId || 'N/A'})</span>
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Header Status Badges */}
+                            <div className="flex flex-wrap items-center gap-2 self-start lg:self-center shrink-0">
+                              {/* Severity Pill */}
+                              <span
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${
+                                  alert.severity === 'critical' || isTamper
+                                    ? 'bg-error text-white'
+                                    : 'bg-amber-600 text-white'
+                                }`}
+                              >
+                                {alert.severity || (isTamper ? 'critical' : 'high')} Risk
+                              </span>
+
+                              {/* Outcome Pill */}
+                              {!isTamper && alert.userAction && (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold ${
+                                    alert.userAction === 'cancelled_by_user'
+                                      ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/30'
+                                      : alert.userAction === 'overridden_by_user'
+                                      ? 'bg-red-500/10 text-red-700 border border-red-500/30'
+                                      : 'bg-surface-container text-on-surface-variant border border-outline-variant'
+                                  }`}
+                                >
+                                  <span className="material-symbols-outlined text-[15px]">
+                                    {alert.userAction === 'cancelled_by_user'
+                                      ? 'check_circle'
+                                      : alert.userAction === 'overridden_by_user'
+                                      ? 'warning'
+                                      : 'schedule'}
+                                  </span>
+                                  {alert.userAction === 'cancelled_by_user'
+                                    ? 'Cancelled by Sender'
+                                    : alert.userAction === 'overridden_by_user'
+                                    ? 'Proceeded Anyway'
+                                    : 'Pending User Decision'}
+                                </span>
+                              )}
+
+                              {/* Resolution Pill */}
+                              {isResolved ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-500/30">
+                                  <span className="material-symbols-outlined text-[15px]">verified</span>
+                                  Resolved
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-500/10 text-amber-700 border border-amber-500/30">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-600 animate-pulse"></span>
+                                  Action Needed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Card Body */}
+                          <div className="p-5 sm:p-6 space-y-5">
+                            {/* Threat Analysis / Triggered Rules */}
+                            <div>
+                              <span className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block mb-2">
+                                Detected Security Anomalies:
+                              </span>
+                              <div className="space-y-2">
+                                {cleanReasons.map((reason, rIdx) => (
+                                  <div
+                                    key={rIdx}
+                                    className="flex items-start gap-2.5 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20 text-xs text-amber-950 font-medium"
+                                  >
+                                    <span className="material-symbols-outlined text-amber-600 text-[18px] shrink-0 mt-0.5">
+                                      report_problem
+                                    </span>
+                                    <span className="leading-relaxed">{reason}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Transaction Details Grid */}
+                            {!isTamper && (
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-surface-container-low border border-outline-variant/40 text-xs">
+                                <div>
+                                  <span className="text-on-surface-variant font-semibold uppercase tracking-wider text-[10px] block mb-0.5">
+                                    Sender Account
+                                  </span>
+                                  <span className="font-bold text-on-surface text-sm block">
+                                    {alert.senderName || 'Sender'}
+                                  </span>
+                                  <span className="font-mono text-on-surface-variant text-[11px]">
+                                    {alert.senderPaymentId || 'N/A'}
+                                  </span>
+                                </div>
+
+                                <div>
+                                  <span className="text-on-surface-variant font-semibold uppercase tracking-wider text-[10px] block mb-0.5">
+                                    Target Recipient
+                                  </span>
+                                  <span className="font-bold text-on-surface text-sm block">
+                                    {alert.receiverName || 'Recipient'}
+                                  </span>
+                                  <span className="font-mono text-on-surface-variant text-[11px]">
+                                    {alert.receiverPaymentId || 'N/A'}
+                                  </span>
+                                </div>
+
+                                <div>
+                                  <span className="text-on-surface-variant font-semibold uppercase tracking-wider text-[10px] block mb-0.5">
+                                    Flagged Amount
+                                  </span>
+                                  <span className="font-extrabold text-on-surface text-base font-mono block">
+                                    ₹{Number(alert.amount || 0).toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="text-on-surface-variant text-[11px]">
+                                    {alert.userAction === 'cancelled_by_user'
+                                      ? 'Transfer Aborted (₹0 Debited)'
+                                      : 'Transfer Processed'}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Tamper Details (if tamper) */}
+                            {isTamper && (
+                              <div className="p-4 rounded-xl bg-error/5 border border-error/20 text-xs space-y-2">
+                                <div className="flex items-center gap-2 font-mono font-bold text-error">
+                                  <span className="material-symbols-outlined text-[18px]">dns</span>
+                                  <span>Ledger Block Index: #{alert.blockIndex}</span>
+                                </div>
+                                {alert.changedFields && alert.changedFields.length > 0 && (
+                                  <div>
+                                    <span className="text-on-surface-variant font-semibold block mb-1">
+                                      Modified Database Fields:
+                                    </span>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {alert.changedFields.map((field, fIdx) => (
+                                        <span
+                                          key={fIdx}
+                                          className="px-2 py-0.5 rounded bg-error/10 text-error border border-error/20 font-mono text-[11px]"
+                                        >
+                                          {field}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Resolution Note if resolved */}
+                            {isResolved && alert.resolvedAt && (
+                              <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-xs text-emerald-800 flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[18px] text-emerald-600">task_alt</span>
+                                <span>
+                                  Incident verified and marked resolved by Admin on {formatBlockTime(alert.resolvedAt)}.
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Card Footer Actions */}
+                          <div className="p-4 sm:px-6 bg-surface-container-low/40 border-t border-outline-variant/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="text-xs text-on-surface-variant flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[16px] text-on-surface-variant">
+                                info
+                              </span>
+                              <span>
+                                {alert.userAction === 'cancelled_by_user'
+                                  ? 'Sender cancelled after prompt — no financial loss.'
+                                  : alert.userAction === 'overridden_by_user'
+                                  ? 'Sender confirmed with PIN — transfer completed.'
+                                  : 'Transfer alert logged.'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2.5 self-end sm:self-center">
+                              {/* Freeze User Button */}
+                              {alert.userId && (
+                                <button
+                                  onClick={() => handleFreezeUserFromAlert(alert.userId, alert.senderName)}
+                                  disabled={userIsFrozen || isLoadingThis}
+                                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                                    userIsFrozen
+                                      ? 'bg-surface-container text-on-surface-variant border border-outline-variant cursor-not-allowed'
+                                      : 'bg-error/10 text-error border border-error/30 hover:bg-error hover:text-white'
+                                  }`}
+                                >
+                                  <span className="material-symbols-outlined text-[16px]">
+                                    {userIsFrozen ? 'lock' : 'ac_unit'}
+                                  </span>
+                                  <span>{userIsFrozen ? 'Account Frozen' : 'Freeze Sender'}</span>
+                                </button>
+                              )}
+
+                              {/* Resolve Button */}
+                              {!isResolved ? (
+                                <button
+                                  onClick={() => handleResolveFraudAlert(alert._id)}
+                                  disabled={isLoadingThis}
+                                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-primary text-white hover:bg-primary-dark transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                                >
+                                  <span className={`material-symbols-outlined text-[16px] ${isLoadingThis ? 'animate-spin' : ''}`}>
+                                    {isLoadingThis ? 'refresh' : 'check_circle'}
+                                  </span>
+                                  <span>{isLoadingThis ? 'Resolving...' : 'Mark Resolved'}</span>
+                                </button>
+                              ) : (
+                                <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                                  <span className="material-symbols-outlined text-[16px]">verified</span>
+                                  Resolved
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )
+          })()}
         </div>
       </main>
 

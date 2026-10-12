@@ -692,9 +692,15 @@ export default function AdminTransactionsView() {
 
                         {/* Status */}
                         <td className="py-3.5 px-4 text-center">
-                          <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold uppercase tracking-wider">
-                            Success
-                          </span>
+                          {tx.status === 'cancelled' ? (
+                            <span className="px-2.5 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                              Cancelled
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                              Success
+                            </span>
+                          )}
                         </td>
 
                         {/* Action */}

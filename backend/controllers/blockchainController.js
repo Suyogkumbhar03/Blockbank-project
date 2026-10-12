@@ -229,7 +229,9 @@ const getFraudAlerts = async (req, res) => {
         const alerts = await FraudAlert.find().sort({ detectedAt: -1 });
         const uniqueAlertsMap = new Map();
         for (const alert of alerts) {
-            const key = `${alert.blockIndex}_${alert.type || 'alert'}`;
+            const key = (alert.blockIndex !== null && alert.blockIndex !== undefined)
+                ? `${alert.blockIndex}_${alert.type || 'alert'}`
+                : alert._id.toString();
             if (!uniqueAlertsMap.has(key)) {
                 uniqueAlertsMap.set(key, alert);
             }
@@ -238,6 +240,27 @@ const getFraudAlerts = async (req, res) => {
         res.status(200).json(uniqueAlerts);
     } catch (error) {
         res.status(500).json({ message: 'Server error fetching fraud alerts', error: error.message });
+    }
+};
+
+/**
+ * PUT /api/admin/blockchain/fraud-alerts/:id/resolve
+ * Marks a FraudAlert as resolved.
+ */
+const resolveFraudAlert = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const alert = await FraudAlert.findById(id);
+        if (!alert) {
+            return res.status(404).json({ message: 'Fraud alert not found' });
+        }
+        alert.resolved = true;
+        alert.resolvedAt = new Date();
+        alert.resolvedBy = (req.user && (req.user.id || req.user._id)) ? (req.user.id || req.user._id) : null;
+        await alert.save();
+        res.status(200).json({ message: 'Fraud alert marked as resolved', alert });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error resolving fraud alert', error: error.message });
     }
 };
 
@@ -276,5 +299,6 @@ module.exports = {
     validateChain,
     validateChainInternal,
     validatePaymentChain,
-    getFraudAlerts
+    getFraudAlerts,
+    resolveFraudAlert
 };

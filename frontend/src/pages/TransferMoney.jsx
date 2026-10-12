@@ -34,6 +34,15 @@ export default function TransferMoney() {
   const [transferSuccessState, setTransferSuccessState] = useState(false)
   const [transferError, setTransferError] = useState('')
 
+  // Fraud detection warning state
+  const [showFraudModal, setShowFraudModal] = useState(false)
+  const [fraudWarningData, setFraudWarningData] = useState({
+    triggeredRules: [],
+    message: '',
+    pin: '',
+  })
+  const [isCancellingFraud, setIsCancellingFraud] = useState(false)
+
   useEffect(() => {
     let isMounted = true
     const userStr = localStorage.getItem('user')
@@ -170,22 +179,35 @@ export default function TransferMoney() {
     }
   }
 
-  const executeTransfer = async (verifiedPin) => {
+  const executeTransfer = async (verifiedPin, userConfirmed = false) => {
     setIsSending(true)
     setTransferError('')
     setTransferSuccessState(false)
 
-    // Parallel minimum timer (4.5 seconds) and API request
-    const minTimerPromise = new Promise((resolve) => setTimeout(resolve, 4500))
-    const apiPromise = api.post('/transfer', {
-      receiverPaymentId: receiverId.trim(),
-      amount: parsedAmt,
-      note: remarks.trim(),
-      pin: verifiedPin,
-    })
-
     try {
-      const [, apiRes] = await Promise.all([minTimerPromise, apiPromise])
+      const apiRes = await api.post('/transfer', {
+        receiverPaymentId: receiverId.trim(),
+        amount: parsedAmt,
+        note: remarks.trim(),
+        pin: verifiedPin,
+        userConfirmedFraud: Boolean(userConfirmed),
+      })
+
+      // If suspicious activity detected, display fraud warning modal
+      if (apiRes.data && apiRes.data.requiresConfirmation) {
+        setIsSending(false)
+        setFraudWarningData({
+          fraudAlertId: apiRes.data.fraudAlertId || null,
+          triggeredRules: apiRes.data.triggeredRules || [],
+          message: apiRes.data.message || 'Suspicious activity detected. Please review before proceeding.',
+          pin: verifiedPin,
+        })
+        setShowFraudModal(true)
+        return
+      }
+
+      // Smooth transition delay for animation
+      await new Promise((resolve) => setTimeout(resolve, 1200))
 
       // Update balance in localStorage
       const userStr = localStorage.getItem('user')
@@ -222,6 +244,34 @@ export default function TransferMoney() {
     } catch (err) {
       setIsSending(false)
       setTransferError(err.response?.data?.message || 'Transfer failed. Please try again.')
+    }
+  }
+
+  const handleConfirmFraudProceed = () => {
+    setShowFraudModal(false)
+    executeTransfer(fraudWarningData.pin, true)
+  }
+
+  const handleCancelFraudTransfer = async () => {
+    setIsCancellingFraud(true)
+    try {
+      await api.post('/transfer/cancel', {
+        senderPaymentId: userPaymentId,
+        receiverPaymentId: receiverId.trim(),
+        amount: parsedAmt,
+        reason: 'User cancelled after fraud warning',
+        fraudAlertId: fraudWarningData.fraudAlertId || null,
+      })
+      setShowFraudModal(false)
+      setTransferError('Transfer cancelled: Suspicious activity detected — cancelled by user.')
+      setAmount('')
+      setRemarks('')
+    } catch (err) {
+      console.error('Failed to cancel transfer:', err)
+      setShowFraudModal(false)
+      setTransferError(err.response?.data?.message || 'Failed to cancel transfer.')
+    } finally {
+      setIsCancellingFraud(false)
     }
   }
 
@@ -870,6 +920,212 @@ export default function TransferMoney() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Step 3: Fraud Detection Warning Modal ─── */}
+      {showFraudModal && (
+        <div
+          id="fraud-warning-modal"
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {/* Backdrop: Do not close when clicked outside */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.65)',
+              backdropFilter: 'blur(6px)',
+            }}
+          />
+
+          {/* Popup card */}
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 10,
+              background: '#fff',
+              borderRadius: '24px',
+              boxShadow: '0 25px 60px -15px rgba(0, 0, 0, 0.3)',
+              width: '100%',
+              maxWidth: '460px',
+              padding: '36px 32px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              margin: '0 16px',
+              border: '1px solid #fed7aa',
+            }}
+          >
+            {/* Warning Icon Badge */}
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: '50%',
+                background: '#fffbeb',
+                border: '2px solid #fde68a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 16,
+                boxShadow: '0 0 20px rgba(245, 158, 11, 0.2)',
+              }}
+            >
+              <span className="material-symbols-outlined" style={{ color: '#d97706', fontSize: 34 }}>
+                warning
+              </span>
+            </div>
+
+            <h3
+              style={{
+                fontSize: 22,
+                fontWeight: 800,
+                color: '#111827',
+                marginBottom: 6,
+                lineHeight: 1.3,
+              }}
+            >
+              ⚠️ Suspicious Activity Detected
+            </h3>
+            <p style={{ fontSize: 13.5, color: '#4b5563', lineHeight: 1.5, marginBottom: 20 }}>
+              We noticed something unusual about this transfer. Please review before proceeding.
+            </p>
+
+            {/* Transfer details quick summary pill */}
+            <div
+              style={{
+                width: '100%',
+                background: '#f9fafb',
+                border: '1px solid #e5e7eb',
+                borderRadius: '12px',
+                padding: '10px 16px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ textAlign: 'left' }}>
+                <span style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Recipient
+                </span>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#1f2937' }}>
+                  {verifiedRecipient?.name || receiverId}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: 11, color: '#6b7280', textTransform: 'uppercase', fontWeight: 700 }}>
+                  Amount
+                </span>
+                <p style={{ fontSize: 16, fontWeight: 800, color: '#111827', fontFamily: 'monospace' }}>
+                  ₹{parsedAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+
+            {/* Triggered rules list */}
+            <div style={{ width: '100%', textAlign: 'left', marginBottom: 24 }}>
+              <p style={{ fontSize: 11.5, fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                Detected Flags ({fraudWarningData.triggeredRules?.length || 0}):
+              </p>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {fraudWarningData.triggeredRules?.map((rule, idx) => (
+                  <li
+                    key={idx}
+                    style={{
+                      background: '#fffbeb',
+                      border: '1px solid #fef3c7',
+                      borderRadius: '10px',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 10,
+                      fontSize: 13,
+                      lineHeight: 1.45,
+                      color: '#78350f',
+                      fontWeight: 500,
+                    }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ color: '#d97706', fontSize: 18, marginTop: 1, flexShrink: 0 }}
+                    >
+                      report_problem
+                    </span>
+                    <span>{rule}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+              <button
+                id="btn-fraud-proceed"
+                type="button"
+                onClick={handleConfirmFraudProceed}
+                style={{
+                  width: '100%',
+                  background: '#059669',
+                  color: '#fff',
+                  fontSize: 14.5,
+                  fontWeight: 700,
+                  padding: '13px 16px',
+                  borderRadius: 12,
+                  cursor: 'pointer',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  boxShadow: '0 4px 12px rgba(5, 150, 105, 0.25)',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>check_circle</span>
+                Yes, Proceed Anyway
+              </button>
+              <button
+                id="btn-fraud-cancel"
+                type="button"
+                disabled={isCancellingFraud}
+                onClick={handleCancelFraudTransfer}
+                style={{
+                  width: '100%',
+                  background: '#dc2626',
+                  color: '#fff',
+                  fontSize: 14.5,
+                  fontWeight: 700,
+                  padding: '13px 16px',
+                  borderRadius: 12,
+                  cursor: isCancellingFraud ? 'not-allowed' : 'pointer',
+                  border: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)',
+                  opacity: isCancellingFraud ? 0.7 : 1,
+                  transition: 'background 0.15s',
+                }}
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>cancel</span>
+                {isCancellingFraud ? 'Cancelling...' : 'No, Cancel This Transfer'}
+              </button>
+            </div>
           </div>
         </div>
       )}
