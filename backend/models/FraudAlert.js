@@ -13,6 +13,8 @@ const fraudAlertSchema = new mongoose.Schema({
 
     // For transaction fraud alerts
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    userName: { type: String, default: '' },
+    transactionId: { type: String, default: '' },
     senderPaymentId: { type: String, default: '' },
     receiverPaymentId: { type: String, default: '' },
     senderName: { type: String, default: '' },
@@ -21,9 +23,10 @@ const fraudAlertSchema = new mongoose.Schema({
     triggeredRules: [{ type: String }],
     userAction: {
         type: String,
-        enum: ['pending', 'cancelled_by_user', 'overridden_by_user'],
+        enum: ['pending', 'cancelled', 'proceeded', 'cancelled_by_user', 'overridden_by_user'],
         default: 'pending'
     },
+    reviewed: { type: Boolean, default: false },
 
     // Common fields
     message: { type: String, required: true },

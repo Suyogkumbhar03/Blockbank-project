@@ -221,6 +221,7 @@ const transferMoney = async (req, res) => {
                     const fraudAlert = new FraudAlert({
                         alertType: 'transaction_fraud',
                         userId: sender._id,
+                        userName: sender.name,
                         senderPaymentId: sender.paymentId,
                         receiverPaymentId: receiver.paymentId,
                         senderName: sender.name,
@@ -228,6 +229,7 @@ const transferMoney = async (req, res) => {
                         amount: numericAmount,
                         triggeredRules: fraudResult.triggeredRules,
                         userAction: 'pending',
+                        reviewed: false,
                         message: `Transfer of ₹${numericAmount} to ${receiver.name} (${receiver.paymentId}) flagged: ${fraudResult.triggeredRules.join('; ')}`,
                         severity: numericAmount > 50000 || fraudResult.triggeredRules.length >= 2 ? 'critical' : 'high',
                         detectedAt: new Date()
@@ -352,6 +354,46 @@ const transferMoney = async (req, res) => {
             console.error('Failed to create transfer notification:', notifErr);
         }
 
+        // Add 1 — "Proceeded Anyway" consequence:
+        // When user proceeds despite fraud warning, save fraud alert with userAction: "proceeded", transactionId, and notify admins.
+        if (userConfirmedFraud) {
+            try {
+                const { fraudAlertId } = req.body;
+                let updatedAlert = null;
+                if (fraudAlertId) {
+                    updatedAlert = await FraudAlert.findByIdAndUpdate(
+                        fraudAlertId,
+                        { userAction: 'proceeded', transactionId: txId },
+                        { new: true }
+                    );
+                }
+                if (!updatedAlert) {
+                    await FraudAlert.findOneAndUpdate(
+                        {
+                            userId: sender._id,
+                            userAction: { $in: ['pending', 'overridden_by_user', 'proceeded'] }
+                        },
+                        { userAction: 'proceeded', transactionId: txId },
+                        { sort: { detectedAt: -1, createdAt: -1 } }
+                    );
+                }
+
+                // Create admin notification: “[User name] proceeded with a flagged transfer of ₹[amount] to [receiver] despite a fraud warning. Transaction ID: [id].”
+                const adminNotifMessage = `${sender.name} proceeded with a flagged transfer of ₹${numericAmount} to ${receiver.name} despite a fraud warning. Transaction ID: ${txId}.`;
+                const admins = await User.find({ role: 'admin' });
+                for (const admin of admins) {
+                    const notif = new Notification({
+                        userId: admin._id,
+                        message: adminNotifMessage,
+                        type: 'fraud_alert'
+                    });
+                    await notif.save();
+                }
+            } catch (fraudProceedErr) {
+                console.error('Failed to handle proceeded fraud alert / admin notification:', fraudProceedErr);
+            }
+        }
+
         return res.status(200).json({
             message: 'Transfer successful',
             transaction,
@@ -442,12 +484,15 @@ const cancelTransfer = async (req, res) => {
         try {
             const { fraudAlertId } = req.body;
             if (fraudAlertId) {
-                await FraudAlert.findByIdAndUpdate(fraudAlertId, { userAction: 'cancelled_by_user' });
+                await FraudAlert.findByIdAndUpdate(fraudAlertId, {
+                    userAction: 'cancelled',
+                    transactionId: txId
+                });
             } else if (sender) {
                 await FraudAlert.findOneAndUpdate(
-                    { userId: sender._id, userAction: 'pending' },
-                    { userAction: 'cancelled_by_user' },
-                    { sort: { detectedAt: -1 } }
+                    { userId: sender._id, userAction: { $in: ['pending', 'cancelled_by_user', 'cancelled'] } },
+                    { userAction: 'cancelled', transactionId: txId },
+                    { sort: { detectedAt: -1, createdAt: -1 } }
                 );
             }
         } catch (alertErr) {

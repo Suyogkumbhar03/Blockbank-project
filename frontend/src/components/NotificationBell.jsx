@@ -88,6 +88,8 @@ function NotificationBell() {
         return 'gpp_bad';
       case 'user_registered':
         return 'person_add';
+      case 'fraud_alert':
+        return 'warning';
       default:
         return 'notifications';
     }

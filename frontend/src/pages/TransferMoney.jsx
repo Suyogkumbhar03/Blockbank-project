@@ -179,18 +179,20 @@ export default function TransferMoney() {
     }
   }
 
-  const executeTransfer = async (verifiedPin, userConfirmed = false) => {
+  const executeTransfer = async (verifiedPin, userConfirmed = false, confirmedAlertId = null) => {
     setIsSending(true)
     setTransferError('')
     setTransferSuccessState(false)
 
     try {
+      const alertIdToSend = confirmedAlertId || fraudWarningData.fraudAlertId || null
       const apiRes = await api.post('/transfer', {
         receiverPaymentId: receiverId.trim(),
         amount: parsedAmt,
         note: remarks.trim(),
         pin: verifiedPin,
         userConfirmedFraud: Boolean(userConfirmed),
+        fraudAlertId: alertIdToSend,
       })
 
       // If suspicious activity detected, display fraud warning modal
@@ -249,7 +251,7 @@ export default function TransferMoney() {
 
   const handleConfirmFraudProceed = () => {
     setShowFraudModal(false)
-    executeTransfer(fraudWarningData.pin, true)
+    executeTransfer(fraudWarningData.pin, true, fraudWarningData.fraudAlertId)
   }
 
   const handleCancelFraudTransfer = async () => {

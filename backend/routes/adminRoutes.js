@@ -1,8 +1,32 @@
 const express = require('express');
 const router = express.Router();
-const { getPendingUsers, getApprovedUsers, getRejectedUsers, approveUser, rejectUser, getAdminProfile, updateAdminProfile, getAllTransactions, toggleFreezeUser, freezeUser, unfreezeUser, deleteUser } = require('../controllers/adminController');
+const {
+    getPendingUsers,
+    getApprovedUsers,
+    getRejectedUsers,
+    approveUser,
+    rejectUser,
+    getAdminProfile,
+    updateAdminProfile,
+    getAllTransactions,
+    toggleFreezeUser,
+    freezeUser,
+    unfreezeUser,
+    deleteUser,
+    getAdminFraudAlerts,
+    reviewFraudAlert
+} = require('../controllers/adminController');
 const { getChain, getPaymentChain, validateChain, validatePaymentChain, getFraudAlerts, resolveFraudAlert } = require('../controllers/blockchainController');
+const { getAdminReports, updateReportStatus } = require('../controllers/reportController');
 const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
+
+// Fraud Monitoring routes
+router.get('/fraud-alerts', verifyToken, isAdmin, getAdminFraudAlerts);
+router.patch('/fraud-alerts/:alertId/review', verifyToken, isAdmin, reviewFraudAlert);
+
+// Account Reports routes
+router.get('/reports', verifyToken, isAdmin, getAdminReports);
+router.patch('/reports/:reportId/status', verifyToken, isAdmin, updateReportStatus);
 
 router.get('/profile', verifyToken, isAdmin, getAdminProfile);
 router.put('/profile', verifyToken, isAdmin, updateAdminProfile);

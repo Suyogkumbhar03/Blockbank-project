@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const Notification = require('../models/Notification');
+const FraudAlert = require('../models/FraudAlert');
 const { addBlock } = require('./blockchainController');
 
 const generateAccountNumber = () => {
@@ -367,6 +368,75 @@ const deleteUser = async (req, res) => {
     }
 };
 
+const getAdminFraudAlerts = async (req, res) => {
+    try {
+        const alerts = await FraudAlert.find()
+            .sort({ createdAt: -1, detectedAt: -1 })
+            .populate('userId', 'name paymentId email');
+
+        const formattedAlerts = alerts.map((alert) => {
+            let cleanAction = alert.userAction;
+            if (cleanAction === 'overridden_by_user' || cleanAction === 'proceeded') {
+                cleanAction = 'proceeded';
+            } else if (cleanAction === 'cancelled_by_user' || cleanAction === 'cancelled') {
+                cleanAction = 'cancelled';
+            } else {
+                cleanAction = cleanAction === 'pending' ? 'cancelled' : (cleanAction || 'cancelled');
+            }
+
+            const userName = alert.userName || alert.senderName || alert.userId?.name || 'Unknown User';
+            const senderPaymentId = alert.senderPaymentId || alert.userId?.paymentId || '';
+
+            return {
+                _id: alert._id,
+                userId: alert.userId?._id || alert.userId,
+                userName,
+                transactionId: alert.transactionId || '',
+                senderPaymentId,
+                receiverPaymentId: alert.receiverPaymentId || '',
+                amount: alert.amount || 0,
+                triggeredRules: (Array.isArray(alert.triggeredRules) && alert.triggeredRules.length > 0)
+                    ? alert.triggeredRules
+                    : (alert.message ? [alert.message] : []),
+                userAction: cleanAction,
+                reviewed: Boolean(alert.reviewed),
+                createdAt: alert.createdAt || alert.detectedAt || new Date()
+            };
+        });
+
+        res.status(200).json(formattedAlerts);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error fetching fraud alerts', error: error.message });
+    }
+};
+
+const reviewFraudAlert = async (req, res) => {
+    try {
+        const { alertId } = req.params;
+        const alert = await FraudAlert.findById(alertId);
+        if (!alert) {
+            return res.status(404).json({ message: 'Fraud alert not found' });
+        }
+
+        alert.reviewed = true;
+        alert.resolved = true;
+        alert.resolvedAt = new Date();
+        alert.resolvedBy = req.user ? (req.user.id || req.user._id) : null;
+        await alert.save();
+
+        res.status(200).json({
+            message: 'Fraud alert marked as reviewed',
+            alert: {
+                _id: alert._id,
+                reviewed: alert.reviewed,
+                resolved: alert.resolved
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Server error reviewing fraud alert', error: error.message });
+    }
+};
+
 module.exports = {
     getPendingUsers,
     getApprovedUsers,
@@ -379,5 +449,7 @@ module.exports = {
     toggleFreezeUser,
     freezeUser,
     unfreezeUser,
-    deleteUser
+    deleteUser,
+    getAdminFraudAlerts,
+    reviewFraudAlert
 };

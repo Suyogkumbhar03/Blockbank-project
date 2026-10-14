@@ -16,7 +16,8 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
       { id: 'freeze-accounts', label: 'Freeze Accounts', icon: 'ac_unit' },
       { id: 'transactions', label: 'Transactions', icon: 'receipt_long' },
       { id: 'explorer', label: 'Blockchain Explorer', icon: 'account_tree' },
-      { id: 'fraud', label: 'Fraud Alerts', icon: 'gpp_bad' },
+      { id: 'fraud-monitoring', label: 'Fraud Monitoring', icon: 'gpp_bad' },
+      { id: 'reports', label: 'Account Reports', icon: 'assignment' },
     ];
 
     return (
@@ -57,7 +58,7 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
             {/* Navigation */}
             <nav className="p-4 flex flex-col gap-2 overflow-y-auto max-h-[calc(100vh-140px)]">
               {adminNavItems.map((item) => {
-                const isActive = activeTab === item.id;
+                const isActive = activeTab === item.id || (item.id === 'fraud-monitoring' && activeTab === 'fraud');
                 return (
                   <a
                     key={item.id}
