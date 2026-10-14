@@ -30,7 +30,17 @@ export default function AdminAccountReportsView() {
       setFormState(initialForm)
     } catch (err) {
       console.error('Failed to fetch admin reports:', err)
-      setError(err.response?.data?.message || 'Failed to load account reports.')
+      let msg = err.response?.data?.message
+      if (!msg) {
+        if (err.response?.status === 404) {
+          msg = 'Backend endpoint /api/admin/reports returned 404 Not Found. Please deploy the latest commit on Render.'
+        } else if (err.message === 'Network Error') {
+          msg = 'Unable to reach backend server. Render instance may be sleeping (cold start). Please retry in 30 seconds.'
+        } else {
+          msg = 'Failed to load account reports.'
+        }
+      }
+      setError(msg)
     } finally {
       if (!silent) setLoading(false)
     }

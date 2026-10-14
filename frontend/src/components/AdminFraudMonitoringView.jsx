@@ -20,7 +20,17 @@ export default function AdminFraudMonitoringView() {
       }
     } catch (err) {
       console.error('Failed to fetch fraud alerts:', err)
-      setError(err.response?.data?.message || 'Failed to load fraud alerts.')
+      let msg = err.response?.data?.message
+      if (!msg) {
+        if (err.response?.status === 404) {
+          msg = 'Backend endpoint /api/admin/fraud-alerts returned 404 Not Found. Please deploy the latest commit on Render.'
+        } else if (err.message === 'Network Error') {
+          msg = 'Unable to reach backend server. Render instance may be sleeping (cold start). Please retry in 30 seconds.'
+        } else {
+          msg = 'Failed to load fraud alerts.'
+        }
+      }
+      setError(msg)
     } finally {
       if (!silent) setLoading(false)
     }
