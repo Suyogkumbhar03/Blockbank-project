@@ -89,6 +89,7 @@ function NotificationBell() {
       case 'user_registered':
         return 'person_add';
       case 'fraud_alert':
+      case 'admin':
         return 'warning';
       default:
         return 'notifications';

@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const PaymentBlock = require('../models/PaymentBlock');
 const Transaction = require('../models/Transaction');
+const Notification = require('../models/Notification');
+const User = require('../models/User');
 
 /**
  * Creates and saves a new PaymentBlock into the payment blockchain ledger.
@@ -64,6 +66,33 @@ const addPaymentBlock = async (transactionData) => {
         });
 
         await paymentBlock.save();
+        const newBlock = paymentBlock;
+
+        // Run validation after every new block is added
+        const validationResult = await validatePaymentChain();
+
+        if (!validationResult.valid) {
+            const notifMessage = `⚠️ Blockchain integrity check failed after Block #${newBlock.index} was added. ${validationResult.critical} critical issue(s) detected. Review the blockchain immediately.`;
+            const admins = await User.find({ role: 'admin' });
+            if (admins.length > 0) {
+                for (const admin of admins) {
+                    await Notification.create({
+                        userId: admin._id,
+                        type: 'admin',
+                        message: notifMessage,
+                        read: false,
+                        createdAt: new Date()
+                    });
+                }
+            } else {
+                await Notification.create({
+                    type: 'admin',
+                    message: notifMessage,
+                    read: false,
+                    createdAt: new Date()
+                });
+            }
+        }
     } catch (error) {
         console.error('Failed to add payment block to blockchain:', error);
     }

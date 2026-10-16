@@ -35,8 +35,12 @@ const getNotifications = async (req, res) => {
             }
         }
 
-        const notifications = await Notification.find({ userId: req.user.id })
-            .sort({ timestamp: -1 })
+        const query = req.user && req.user.role === 'admin'
+            ? { $or: [{ userId: req.user.id }, { type: 'admin' }] }
+            : { userId: req.user.id };
+
+        const notifications = await Notification.find(query)
+            .sort({ timestamp: -1, createdAt: -1 })
             .limit(30);
         res.status(200).json(notifications);
     } catch (error) {
@@ -54,7 +58,7 @@ const markNotificationAsRead = async (req, res) => {
         }
 
         // Verify ownership
-        if (notification.userId.toString() !== req.user.id) {
+        if (notification.userId && notification.userId.toString() !== req.user.id && req.user.role !== 'admin') {
             return res.status(403).json({ message: 'Access denied: not your notification' });
         }
 

@@ -48,6 +48,10 @@ function AdminDashboard() {
   const [newBlockToast, setNewBlockToast] = useState(null)
   const lastPaymentBlockCountRef = useRef(null)
 
+  // Layer 1 — Blockchain Broken Alert State & Auth Token
+  const [chainBrokenAlert, setChainBrokenAlert] = useState(null)
+  const token = localStorage.getItem('token')
+
   // Approve Users sub-tab state
   const [approveSubTab, setApproveSubTab] = useState('pending') // 'pending' | 'rejected'
 
@@ -203,10 +207,39 @@ function AdminDashboard() {
     }
   }, [newBlockToast])
 
+  // Layer 1 — Auto validation every 2 minutes while admin is logged in
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await api.get('/admin/payment-blockchain/validate', {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+
+        if (!response.data.valid) {
+          // Show a persistent red alert banner at the top of the admin dashboard
+          // This banner should appear on whichever tab admin is currently on
+          // It should NOT disappear automatically — admin must dismiss it manually
+          setChainBrokenAlert({
+            show: true,
+            critical: response.data.critical,
+            warnings: response.data.warnings,
+            message: `⚠️ Blockchain Integrity Alert — ${response.data.critical || 1} critical block(s) detected. The blockchain may have been tampered with. Please go to the Blockchain tab to review immediately.`
+          })
+        }
+        // If valid — do nothing, stay silent, show no message
+      } catch (err) {
+        // If API call fails silently — do not show any error to admin
+        console.error("Auto validation error:", err)
+      }
+    }, 2 * 60 * 1000) // every 2 minutes
+
+    return () => clearInterval(interval) // cleanup on logout or unmount
+  }, [token])
+
   // Enhanced Blockchain validation handler
-  const handleValidatePaymentChain = async () => {
+  const runValidation = async (silent = false) => {
     try {
-      setIsValidatingPaymentChain(true)
+      if (!silent) setIsValidatingPaymentChain(true)
       const res = await api.get('/admin/payment-blockchain/validate')
       const data = res.data || {}
       const results = data.results || []
@@ -224,13 +257,25 @@ function AdminDashboard() {
       } else {
         setPaymentValidationStatus('valid')
       }
+      return data
     } catch (error) {
       console.error('Failed to validate payment blockchain', error)
-      alert('Failed to validate payment blockchain. Please try again.')
+      if (!silent) {
+        alert('Failed to validate payment blockchain. Please try again.')
+      }
     } finally {
-      setIsValidatingPaymentChain(false)
+      if (!silent) setIsValidatingPaymentChain(false)
     }
   }
+
+  const handleValidatePaymentChain = () => runValidation(false)
+
+  // Layer 2 — Validate immediately when admin opens the blockchain tab
+  useEffect(() => {
+    if (activeTab === 'explorer') {
+      runValidation(true) // call the existing validation function immediately on tab open without spinner
+    }
+  }, [activeTab])
 
   const formatBlockTime = (dateStr) => {
     if (!dateStr) return 'N/A'
@@ -382,6 +427,28 @@ function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-surface-container-lowest font-sans text-on-surface flex">
+      {/* Layer 1 — Persistent Red Alert Banner when chain breaks (visible on ALL admin tabs) */}
+      {chainBrokenAlert && chainBrokenAlert.show && (
+        <div className="fixed top-0 left-0 right-0 z-[100000] bg-red-600 text-white font-bold py-3 px-4 sm:px-6 shadow-2xl flex items-center justify-between gap-3 animate-fadeIn">
+          <div
+            onClick={() => setActiveTab('explorer')}
+            className="flex items-center gap-2.5 text-xs sm:text-sm md:text-base cursor-pointer hover:opacity-90"
+            title="Click to view Blockchain Explorer"
+          >
+            <span className="material-symbols-outlined text-xl sm:text-2xl shrink-0">warning</span>
+            <span>{chainBrokenAlert.message}</span>
+          </div>
+          <button
+            onClick={() => setChainBrokenAlert({ ...chainBrokenAlert, show: false })}
+            className="p-1 rounded-md hover:bg-red-700 transition-colors text-white cursor-pointer shrink-0"
+            title="Dismiss Alert"
+            aria-label="Dismiss banner"
+          >
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+      )}
+
       {/* Shared Admin Sidebar */}
       <Sidebar role="admin" activeTab={activeTab} setActiveTab={setActiveTab} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
