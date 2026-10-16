@@ -17,7 +17,6 @@ function Sidebar({ role = 'user', activeTab, setActiveTab, mobileOpen = false, s
       { id: 'transactions', label: 'Transactions', icon: 'receipt_long' },
       { id: 'explorer', label: 'Blockchain Explorer', icon: 'account_tree' },
       { id: 'fraud-monitoring', label: 'Fraud Monitoring', icon: 'gpp_bad' },
-      { id: 'reports', label: 'Account Reports', icon: 'assignment' },
     ];
 
     return (

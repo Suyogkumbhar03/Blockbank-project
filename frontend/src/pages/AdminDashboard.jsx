@@ -4,7 +4,6 @@ import Sidebar from '../components/Sidebar'
 import AdminProfileView from '../components/AdminProfileView'
 import AdminTransactionsView from '../components/AdminTransactionsView'
 import AdminFraudMonitoringView from '../components/AdminFraudMonitoringView'
-import AdminAccountReportsView from '../components/AdminAccountReportsView'
 import TransactionVolumeChart from '../components/TransactionVolumeChart'
 import NotificationBell from '../components/NotificationBell'
 import { generateReport } from '../utils/generateReport.jsx'
@@ -1342,9 +1341,6 @@ function AdminDashboard() {
             <AdminFraudMonitoringView />
           )}
 
-          {activeTab === 'reports' && (
-            <AdminAccountReportsView />
-          )}
         </div>
       </main>
 
