@@ -357,7 +357,7 @@ const transferMoney = async (req, res) => {
         await transaction.save();
 
         // Create PaymentBlock in payment blockchain
-        addPaymentBlock({
+        await addPaymentBlock({
             transactionId: transaction.transactionId,
             senderPaymentId: transaction.senderPaymentId,
             receiverPaymentId: transaction.receiverPaymentId,

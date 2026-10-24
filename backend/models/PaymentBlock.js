@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const paymentBlockSchema = new mongoose.Schema({
-    index: { type: Number, required: true },
+    index: { type: Number, required: true, unique: true },
     transactionId: { type: String, required: true },
     senderPaymentId: { type: String, required: true },
     receiverPaymentId: { type: String, required: true },

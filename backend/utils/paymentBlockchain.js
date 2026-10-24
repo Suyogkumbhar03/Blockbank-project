@@ -4,98 +4,140 @@ const Transaction = require('../models/Transaction');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 
+// Simple in-process queue / mutex to serialize block creation within the same server instance
+let blockCreationQueue = Promise.resolve();
+
+const enqueueBlockCreation = (task) => {
+    const executed = blockCreationQueue.then(task, task);
+    blockCreationQueue = executed.catch(() => {});
+    return executed;
+};
+
 /**
  * Creates and saves a new PaymentBlock into the payment blockchain ledger.
  * Signed by Authority Private Key (PoA SHA256 RSA).
+ * Serialized via in-process queue and wrapped in a retry loop (max 5 attempts)
+ * if a duplicate key error (code 11000) occurs.
  * Wrapped in try/catch to ensure errors never break caller execution (e.g. transfer money flow).
  * 
  * @param {Object} transactionData - Details of the saved transaction
  */
 const addPaymentBlock = async (transactionData) => {
-    try {
-        if (!transactionData) return;
+    return enqueueBlockCreation(async () => {
+        try {
+            if (!transactionData) return null;
 
-        // Fetch last PaymentBlock sorted by index desc
-        const lastBlock = await PaymentBlock.findOne().sort({ index: -1 });
+            let savedBlock = null;
+            const maxAttempts = 5;
 
-        let previousHash = '0';
-        let index = 0;
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+                try {
+                    // Fetch last PaymentBlock sorted by index desc
+                    const lastBlock = await PaymentBlock.findOne().sort({ index: -1 });
 
-        if (lastBlock) {
-            previousHash = lastBlock.hash;
-            index = lastBlock.index + 1;
-        }
+                    let previousHash = '0';
+                    let index = 0;
 
-        const timestamp = transactionData.timestamp ? new Date(transactionData.timestamp) : new Date();
+                    if (lastBlock) {
+                        previousHash = lastBlock.hash;
+                        index = lastBlock.index + 1;
+                    }
 
-        // Exact field order for PoA data signature:
-        // index + transactionId + senderPaymentId + receiverPaymentId + senderName + receiverName + amount + timestamp (ISO string) + previousHash
-        const dataToSign = `${index}${transactionData.transactionId}${transactionData.senderPaymentId}${transactionData.receiverPaymentId}${transactionData.senderName}${transactionData.receiverName}${transactionData.amount}${timestamp.toISOString()}${previousHash}`;
+                    const timestamp = transactionData.timestamp ? new Date(transactionData.timestamp) : new Date();
 
-        // Sign payload with Authority Private Key
-        const privateKey = process.env.AUTHORITY_PRIVATE_KEY;
-        const publicKey = process.env.AUTHORITY_PUBLIC_KEY;
+                    // Exact field order for PoA data signature:
+                    // index + transactionId + senderPaymentId + receiverPaymentId + senderName + receiverName + amount + timestamp (ISO string) + previousHash
+                    const dataToSign = `${index}${transactionData.transactionId}${transactionData.senderPaymentId}${transactionData.receiverPaymentId}${transactionData.senderName}${transactionData.receiverName}${transactionData.amount}${timestamp.toISOString()}${previousHash}`;
 
-        let signature = 'N/A';
-        if (privateKey) {
-            const signer = crypto.createSign('SHA256');
-            signer.update(dataToSign);
-            signature = signer.sign(privateKey, 'hex');
-        }
+                    // Sign payload with Authority Private Key
+                    const privateKey = process.env.AUTHORITY_PRIVATE_KEY;
+                    const publicKey = process.env.AUTHORITY_PUBLIC_KEY;
 
-        // Include signature in data that gets hashed for the block's hash field
-        const dataToHash = `${dataToSign}${signature}`;
+                    let signature = 'N/A';
+                    if (privateKey) {
+                        const signer = crypto.createSign('SHA256');
+                        signer.update(dataToSign);
+                        signature = signer.sign(privateKey, 'hex');
+                    }
 
-        // Compute SHA256 hash
-        const hash = crypto.createHash('sha256').update(dataToHash).digest('hex');
+                    // Include signature in data that gets hashed for the block's hash field
+                    const dataToHash = `${dataToSign}${signature}`;
 
-        // Create & save new PaymentBlock
-        const paymentBlock = new PaymentBlock({
-            index,
-            transactionId: transactionData.transactionId,
-            senderPaymentId: transactionData.senderPaymentId,
-            receiverPaymentId: transactionData.receiverPaymentId,
-            senderName: transactionData.senderName,
-            receiverName: transactionData.receiverName,
-            amount: transactionData.amount,
-            timestamp,
-            previousHash,
-            signature,
-            authorityPublicKey: publicKey || 'N/A',
-            hash
-        });
+                    // Compute SHA256 hash
+                    const hash = crypto.createHash('sha256').update(dataToHash).digest('hex');
 
-        await paymentBlock.save();
-        const newBlock = paymentBlock;
+                    // Create & save new PaymentBlock
+                    const paymentBlock = new PaymentBlock({
+                        index,
+                        transactionId: transactionData.transactionId,
+                        senderPaymentId: transactionData.senderPaymentId,
+                        receiverPaymentId: transactionData.receiverPaymentId,
+                        senderName: transactionData.senderName,
+                        receiverName: transactionData.receiverName,
+                        amount: transactionData.amount,
+                        timestamp,
+                        previousHash,
+                        signature,
+                        authorityPublicKey: publicKey || 'N/A',
+                        hash
+                    });
 
-        // Run validation after every new block is added
-        const validationResult = await validatePaymentChain();
+                    await paymentBlock.save();
+                    savedBlock = paymentBlock;
+                    break;
+                } catch (saveError) {
+                    const isDuplicateKey = saveError.code === 11000 ||
+                        (saveError.errorResponse && saveError.errorResponse.code === 11000) ||
+                        (saveError.message && saveError.message.includes('E11000'));
 
-        if (!validationResult.valid) {
-            const notifMessage = `⚠️ Blockchain integrity check failed after Block #${newBlock.index} was added. ${validationResult.critical} critical issue(s) detected. Review the blockchain immediately.`;
-            const admins = await User.find({ role: 'admin' });
-            if (admins.length > 0) {
-                for (const admin of admins) {
+                    if (isDuplicateKey && attempt < maxAttempts) {
+                        console.warn(`PaymentBlock index conflict (code 11000) on attempt ${attempt}/${maxAttempts}. Re-reading last block and retrying...`);
+                        await new Promise((res) => setTimeout(res, 50 * attempt));
+                        continue;
+                    }
+
+                    console.error(`Failed to save payment block (attempt ${attempt}/${maxAttempts}):`, saveError);
+                    break;
+                }
+            }
+
+            if (!savedBlock) {
+                console.error('Failed to add payment block to blockchain after retries.');
+                return null;
+            }
+
+            // Run validation after every new block is added
+            const validationResult = await validatePaymentChain();
+
+            if (!validationResult.valid) {
+                const notifMessage = `⚠️ Blockchain integrity check failed after Block #${savedBlock.index} was added. ${validationResult.critical} critical issue(s) detected. Review the blockchain immediately.`;
+                const admins = await User.find({ role: 'admin' });
+                if (admins.length > 0) {
+                    for (const admin of admins) {
+                        await Notification.create({
+                            userId: admin._id,
+                            type: 'admin',
+                            message: notifMessage,
+                            read: false,
+                            createdAt: new Date()
+                        });
+                    }
+                } else {
                     await Notification.create({
-                        userId: admin._id,
                         type: 'admin',
                         message: notifMessage,
                         read: false,
                         createdAt: new Date()
                     });
                 }
-            } else {
-                await Notification.create({
-                    type: 'admin',
-                    message: notifMessage,
-                    read: false,
-                    createdAt: new Date()
-                });
             }
+
+            return savedBlock;
+        } catch (error) {
+            console.error('Failed to add payment block to blockchain:', error);
+            return null;
         }
-    } catch (error) {
-        console.error('Failed to add payment block to blockchain:', error);
-    }
+    });
 };
 
 /**
