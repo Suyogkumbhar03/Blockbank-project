@@ -412,13 +412,36 @@ const getTransactionHistory = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Find all transactions where user is sender or receiver
-        const transactions = await Transaction.find({
+        const { status, type, excludeUnsuccessful } = req.query;
+
+        // Build database query
+        const query = {
             $or: [
                 { senderPaymentId: user.paymentId },
                 { receiverPaymentId: user.paymentId }
             ]
-        }).sort({ timestamp: -1 });
+        };
+
+        if (status) {
+            const normalized = status.toLowerCase().trim();
+            if (normalized === 'completed' || normalized === 'success') {
+                query.status = { $in: ['completed', 'success'] };
+            } else {
+                query.status = normalized;
+            }
+        } else if (excludeUnsuccessful === 'true') {
+            query.status = { $in: ['completed', 'success'] };
+        }
+
+        if (type === 'sent') {
+            query.senderPaymentId = user.paymentId;
+            delete query.$or;
+        } else if (type === 'received') {
+            query.receiverPaymentId = user.paymentId;
+            delete query.$or;
+        }
+
+        const transactions = await Transaction.find(query).sort({ timestamp: -1 });
 
         // Map and attach direction relative to logged-in user
         const formattedTransactions = transactions.map((tx) => {
@@ -445,6 +468,73 @@ const getTransactionHistory = async (req, res) => {
         return res.status(200).json(formattedTransactions);
     } catch (error) {
         return res.status(500).json({ message: 'Server error fetching transaction history', error: error.message });
+    }
+};
+
+// Daily spending aggregation endpoint controller
+// Returns 7-day spending for authenticated user strictly excluding cancelled, failed, rejected, or pending transactions
+const getDailySpending = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Only query completed/successful outgoing transfers where money was deducted
+        const completedTransactions = await Transaction.find({
+            senderPaymentId: user.paymentId,
+            status: { $in: ['completed', 'success'] }
+        }).sort({ timestamp: -1 });
+
+        const days = [];
+        const now = new Date();
+
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(now.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
+            days.push({ dateStr, dayLabel, totalAmount: 0, count: 0 });
+        }
+
+        const seenTxIds = new Set();
+        completedTransactions.forEach((tx) => {
+            if (!tx || !tx.timestamp) return;
+
+            // Deduplicate: ensure each transaction is counted only once
+            const txKey = tx.transactionId || (tx._id ? tx._id.toString() : null);
+            if (txKey) {
+                if (seenTxIds.has(txKey)) return;
+                seenTxIds.add(txKey);
+            }
+
+            const rawStatus = (tx.status || '').toLowerCase().trim();
+            if (rawStatus !== 'completed' && rawStatus !== 'success') return;
+            if (['cancelled', 'failed', 'rejected', 'pending'].includes(rawStatus)) return;
+
+            const amt = Number(tx.amount);
+            if (isNaN(amt) || amt <= 0) return;
+
+            const txDate = new Date(tx.timestamp);
+            if (isNaN(txDate.getTime())) return;
+            const txDateStr = txDate.toISOString().split('T')[0];
+
+            const dayObj = days.find((d) => d.dateStr === txDateStr);
+            if (dayObj) {
+                dayObj.totalAmount += amt;
+                dayObj.count += 1;
+            }
+        });
+
+        const maxAmount = Math.max(...days.map((d) => d.totalAmount), 1);
+        const chartData = days.map((d) => ({
+            ...d,
+            heightPct: d.totalAmount > 0 ? Math.max(Math.round((d.totalAmount / maxAmount) * 100), 12) : 0
+        }));
+
+        return res.status(200).json(chartData);
+    } catch (error) {
+        return res.status(500).json({ message: 'Server error calculating spending', error: error.message });
     }
 };
 
@@ -573,5 +663,6 @@ module.exports = {
     cancelTransfer,
     getTransactionHistory,
     getMyFraudAlerts,
-    selfFreezeAccount
+    selfFreezeAccount,
+    getDailySpending
 };

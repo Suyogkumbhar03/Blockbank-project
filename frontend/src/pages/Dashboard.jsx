@@ -125,16 +125,40 @@ function Dashboard() {
       days.push({ dateStr, dayLabel, totalAmount: 0, count: 0 })
     }
 
+    // Track seen transaction identifiers to prevent duplicate counting
+    const seenTxIds = new Set()
+
     transactions.forEach((tx) => {
-      if (!tx.timestamp) return
-      // Only include spending (sent / outgoing transactions)
-      const isSent = tx.direction === 'sent' || (user.paymentId && tx.senderPaymentId === user.paymentId)
+      if (!tx || !tx.timestamp) return
+
+      // Deduplicate: avoid double-counting any transaction
+      const txKey = tx.transactionId || (tx._id ? String(tx._id) : null)
+      if (txKey) {
+        if (seenTxIds.has(txKey)) return
+        seenTxIds.add(txKey)
+      }
+
+      // Check transaction status: ONLY count successfully completed transactions where money was deducted
+      const rawStatus = (tx.status || '').toLowerCase().trim()
+      const isCompleted = (rawStatus === 'completed' || rawStatus === 'success') &&
+        !['cancelled', 'failed', 'rejected', 'pending'].includes(rawStatus)
+      if (!isCompleted) return
+
+      // Only include spending (sent / outgoing transactions where user was sender)
+      const isSent = tx.direction === 'sent' || (Boolean(user?.paymentId) && tx.senderPaymentId === user.paymentId)
       if (!isSent) return
 
-      const txDateStr = new Date(tx.timestamp).toISOString().split('T')[0]
+      // Exclude invalid or zero/negative amounts
+      const amt = Number(tx.amount)
+      if (isNaN(amt) || amt <= 0) return
+
+      const txDate = new Date(tx.timestamp)
+      if (isNaN(txDate.getTime())) return
+      const txDateStr = txDate.toISOString().split('T')[0]
+
       const dayObj = days.find((d) => d.dateStr === txDateStr)
       if (dayObj) {
-        dayObj.totalAmount += Number(tx.amount || 0)
+        dayObj.totalAmount += amt
         dayObj.count += 1
       }
     })
