@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const bcrypt = require('bcrypt');
@@ -199,70 +200,101 @@ const transferMoney = async (req, res) => {
         sender.pinAttempts = 0;
         await sender.save({ validateModifiedOnly: true });
 
-        // Fraud detection check: skip if user confirmed after fraud warning
-        if (!userConfirmedFraud) {
-            // Calculate sender account age in hours
-            const approvedTime = sender.approvedAt
-                ? new Date(sender.approvedAt).getTime()
-                : (sender.createdAt ? new Date(sender.createdAt).getTime() : Date.now());
-            const accountAgeHours = (Date.now() - approvedTime) / (1000 * 60 * 60);
+        // Fraud detection check: never skip checkFraud() even if userConfirmedFraud is true
+        const approvedTime = sender.approvedAt
+            ? new Date(sender.approvedAt).getTime()
+            : (sender.createdAt ? new Date(sender.createdAt).getTime() : Date.now());
+        const accountAgeHours = (Date.now() - approvedTime) / (1000 * 60 * 60);
 
-            const fraudResult = await checkFraud({
-                senderPaymentId: sender.paymentId,
-                receiverPaymentId: receiver.paymentId,
-                amount: numericAmount,
-                senderAccountAge: accountAgeHours,
-                timestamp: new Date()
-            }, pinAttemptsBefore);
+        const fraudResult = await checkFraud({
+            senderPaymentId: sender.paymentId,
+            receiverPaymentId: receiver.paymentId,
+            amount: numericAmount,
+            senderAccountAge: accountAgeHours,
+            timestamp: new Date()
+        }, pinAttemptsBefore);
 
-            if (fraudResult.isFraud) {
-                let fraudAlertId = null;
-                try {
-                    const fraudAlert = new FraudAlert({
-                        alertType: 'transaction_fraud',
-                        userId: sender._id,
-                        userName: sender.name,
-                        senderPaymentId: sender.paymentId,
-                        receiverPaymentId: receiver.paymentId,
-                        senderName: sender.name,
-                        receiverName: receiver.name,
-                        amount: numericAmount,
-                        triggeredRules: fraudResult.triggeredRules,
-                        userAction: 'pending',
-                        reviewed: false,
-                        message: `Transfer of ₹${numericAmount} to ${receiver.name} (${receiver.paymentId}) flagged: ${fraudResult.triggeredRules.join('; ')}`,
-                        severity: numericAmount > 50000 || fraudResult.triggeredRules.length >= 2 ? 'critical' : 'high',
-                        detectedAt: new Date()
-                    });
-                    await fraudAlert.save();
-                    fraudAlertId = fraudAlert._id;
-                } catch (alertErr) {
-                    console.error('Failed to create FraudAlert document:', alertErr);
-                }
+        const isConfirmed = userConfirmedFraud === true || userConfirmedFraud === 'true';
 
-                return res.status(200).json({
-                    requiresConfirmation: true,
-                    fraudAlertId,
-                    triggeredRules: fraudResult.triggeredRules,
-                    message: "Suspicious activity detected. Please confirm to proceed."
-                });
+        if (isConfirmed) {
+            const { fraudAlertId } = req.body;
+
+            // When userConfirmedFraud is true, request must include a valid fraudAlertId
+            if (!fraudAlertId || !mongoose.Types.ObjectId.isValid(fraudAlertId)) {
+                return res.status(400).json({ message: 'Invalid or expired fraud confirmation' });
             }
-        } else {
-            // User confirmed proceeding despite warning: update FraudAlert record
+
+            const alert = await FraudAlert.findById(fraudAlertId);
+
+            // Verify all 6 conditions:
+            // 1. Alert exists
+            if (!alert) {
+                return res.status(400).json({ message: 'Invalid or expired fraud confirmation' });
+            }
+
+            // 2. alert.userId equals the logged-in sender's id
+            if (!alert.userId || alert.userId.toString() !== sender._id.toString()) {
+                return res.status(400).json({ message: 'Invalid or expired fraud confirmation' });
+            }
+
+            // 3. alert.receiverPaymentId equals the receiverPaymentId in this request
+            const reqReceiver = receiverPaymentId ? receiverPaymentId.trim().toLowerCase() : '';
+            const alertReceiver = alert.receiverPaymentId ? alert.receiverPaymentId.trim().toLowerCase() : '';
+            if (!alertReceiver || alertReceiver !== reqReceiver) {
+                return res.status(400).json({ message: 'Invalid or expired fraud confirmation' });
+            }
+
+            // 4. alert.amount equals the amount in this request
+            if (Number(alert.amount) !== numericAmount) {
+                return res.status(400).json({ message: 'Invalid or expired fraud confirmation' });
+            }
+
+            // 5. alert.userAction is "pending" (alerts that are "proceeded" or "cancelled" cannot be reused)
+            if (alert.userAction !== 'pending') {
+                return res.status(400).json({ message: 'Invalid or expired fraud confirmation' });
+            }
+
+            // 6. Alert was created within the last 10 minutes
+            const alertCreatedAt = alert.createdAt
+                ? new Date(alert.createdAt).getTime()
+                : (alert.detectedAt ? new Date(alert.detectedAt).getTime() : 0);
+            const tenMinutesMs = 10 * 60 * 1000;
+            const now = Date.now();
+
+            if (!alertCreatedAt || (now - alertCreatedAt) > tenMinutesMs || (now - alertCreatedAt) < -60000) {
+                return res.status(400).json({ message: 'Invalid or expired fraud confirmation' });
+            }
+        } else if (fraudResult.isFraud) {
+            let newFraudAlertId = null;
             try {
-                const { fraudAlertId } = req.body;
-                if (fraudAlertId) {
-                    await FraudAlert.findByIdAndUpdate(fraudAlertId, { userAction: 'overridden_by_user' });
-                } else {
-                    await FraudAlert.findOneAndUpdate(
-                        { userId: sender._id, userAction: 'pending' },
-                        { userAction: 'overridden_by_user' },
-                        { sort: { detectedAt: -1 } }
-                    );
-                }
-            } catch (err) {
-                console.error('Failed to update FraudAlert on override:', err);
+                const fraudAlert = new FraudAlert({
+                    alertType: 'transaction_fraud',
+                    userId: sender._id,
+                    userName: sender.name,
+                    senderPaymentId: sender.paymentId,
+                    receiverPaymentId: receiver.paymentId,
+                    senderName: sender.name,
+                    receiverName: receiver.name,
+                    amount: numericAmount,
+                    triggeredRules: fraudResult.triggeredRules,
+                    userAction: 'pending',
+                    reviewed: false,
+                    message: `Transfer of ₹${numericAmount} to ${receiver.name} (${receiver.paymentId}) flagged: ${fraudResult.triggeredRules.join('; ')}`,
+                    severity: numericAmount > 50000 || fraudResult.triggeredRules.length >= 2 ? 'critical' : 'high',
+                    detectedAt: new Date()
+                });
+                await fraudAlert.save();
+                newFraudAlertId = fraudAlert._id;
+            } catch (alertErr) {
+                console.error('Failed to create FraudAlert document:', alertErr);
             }
+
+            return res.status(200).json({
+                requiresConfirmation: true,
+                fraudAlertId: newFraudAlertId,
+                triggeredRules: fraudResult.triggeredRules,
+                message: "Suspicious activity detected. Please confirm to proceed."
+            });
         }
 
         // 6. ATOMIC BALANCE TRANSFER (Isolation & Concurrency Protection)
@@ -354,27 +386,16 @@ const transferMoney = async (req, res) => {
             console.error('Failed to create transfer notification:', notifErr);
         }
 
-        // Add 1 — "Proceeded Anyway" consequence:
-        // When user proceeds despite fraud warning, save fraud alert with userAction: "proceeded", transactionId, and notify admins.
-        if (userConfirmedFraud) {
+        // "Proceeded Anyway" consequence:
+        // When user proceeds despite fraud warning, update the verified fraud alert with userAction: "proceeded", transactionId, and notify admins.
+        if (isConfirmed) {
             try {
                 const { fraudAlertId } = req.body;
-                let updatedAlert = null;
                 if (fraudAlertId) {
-                    updatedAlert = await FraudAlert.findByIdAndUpdate(
+                    await FraudAlert.findByIdAndUpdate(
                         fraudAlertId,
                         { userAction: 'proceeded', transactionId: txId },
                         { new: true }
-                    );
-                }
-                if (!updatedAlert) {
-                    await FraudAlert.findOneAndUpdate(
-                        {
-                            userId: sender._id,
-                            userAction: { $in: ['pending', 'overridden_by_user', 'proceeded'] }
-                        },
-                        { userAction: 'proceeded', transactionId: txId },
-                        { sort: { detectedAt: -1, createdAt: -1 } }
                     );
                 }
 
