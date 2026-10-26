@@ -365,6 +365,8 @@ const transferMoney = async (req, res) => {
             receiverName: transaction.receiverName,
             amount: transaction.amount,
             timestamp: transaction.timestamp
+        }).catch((err) => {
+            console.error('Failed to add payment block to blockchain:', err.message);
         });
 
         // Trigger notifications for both receiver and sender
