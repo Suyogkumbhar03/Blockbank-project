@@ -1,6 +1,9 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
+const EmailOtp = require('../models/EmailOtp');
+const { sendVerificationEmail } = require('../utils/sendEmail');
 
 const registerUser = async (req, res) => {
     try {
@@ -76,6 +79,19 @@ const registerUser = async (req, res) => {
             return res.status(400).json({ message: 'Email already registered' });
         }
 
+        // Require verified EmailOtp record within last 30 minutes
+        const now = new Date();
+        const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
+        const verifiedRecord = await EmailOtp.findOne({
+            email: lowerEmail,
+            verified: true,
+            verifiedAt: { $gte: thirtyMinutesAgo }
+        });
+
+        if (!verifiedRecord) {
+            return res.status(400).json({ message: 'Please verify your email with OTP first' });
+        }
+
         // Validate Date of Birth & Age
         if (!dateOfBirth) {
             return res.status(400).json({ message: 'Date of birth is required' });
@@ -125,6 +141,13 @@ const registerUser = async (req, res) => {
         });
 
         await newUser.save();
+
+        // Delete EmailOtp record after successful registration
+        try {
+            await EmailOtp.deleteOne({ email: lowerEmail });
+        } catch (otpDelErr) {
+            console.error('Failed to delete EmailOtp record after user registration:', otpDelErr.message);
+        }
 
         // Save admin notification for new user registration request
         try {
@@ -390,4 +413,180 @@ const checkUsername = async (req, res) => {
     }
 };
 
-module.exports = { registerUser, loginUser, getUserProfile, updateUserProfile, verifyOldPassword, updatePassword, checkUsername };
+const sendEmailOtp = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email || typeof email !== 'string') {
+            return res.status(400).json({ message: 'Email address is required' });
+        }
+
+        const lowerEmail = email.toLowerCase().trim();
+        if (!lowerEmail.includes('gmail') || !lowerEmail.includes('.') || !lowerEmail.includes('com') || !/^[a-zA-Z0-9._%+-]+@gmail\.com$/i.test(lowerEmail)) {
+            return res.status(400).json({ message: 'Email must be a valid Gmail address containing "gmail", ".", and "com" (e.g. username@gmail.com)' });
+        }
+
+        const existingUser = await User.findOne({ email: lowerEmail });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Email already registered' });
+        }
+
+        const now = new Date();
+        let otpRecord = await EmailOtp.findOne({ email: lowerEmail });
+
+        if (otpRecord && otpRecord.lockedUntil && otpRecord.lockedUntil > now) {
+            const remainingMs = otpRecord.lockedUntil.getTime() - now.getTime();
+            const remainingMinutes = Math.max(1, Math.ceil(remainingMs / (60 * 1000)));
+            return res.status(429).json({
+                message: `Too many failed attempts. Verification is locked. Please try again in ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}.`
+            });
+        }
+
+        // 60-second cooldown between sends
+        if (otpRecord && otpRecord.lastSentAt) {
+            const elapsedMs = now.getTime() - otpRecord.lastSentAt.getTime();
+            if (elapsedMs < 60 * 1000) {
+                const secondsRemaining = Math.max(1, Math.ceil((60 * 1000 - elapsedMs) / 1000));
+                return res.status(429).json({
+                    message: `Please wait ${secondsRemaining} second${secondsRemaining === 1 ? '' : 's'} before requesting another OTP.`
+                });
+            }
+        }
+
+        // Maximum 5 sends per hour per email
+        const ONE_HOUR_MS = 60 * 60 * 1000;
+        const isNewWindow = !otpRecord || !otpRecord.sendWindowStart || (now.getTime() - otpRecord.sendWindowStart.getTime() > ONE_HOUR_MS);
+        const currentSendCount = isNewWindow ? 0 : (otpRecord.sendCount || 0);
+
+        if (currentSendCount >= 5) {
+            const windowRemainingMs = ONE_HOUR_MS - (now.getTime() - otpRecord.sendWindowStart.getTime());
+            const remainingMinutes = Math.max(1, Math.ceil(windowRemainingMs / (60 * 1000)));
+            return res.status(429).json({
+                message: `Maximum of 5 OTP requests per hour reached for this email. Please try again in ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}.`
+            });
+        }
+
+        const otpCode = crypto.randomInt(100000, 1000000).toString();
+        const otpHash = await bcrypt.hash(otpCode, 10);
+        const expiresAt = new Date(now.getTime() + 10 * 60 * 1000);
+
+        // Send email first — if sending fails, return generic 500 and remove OTP record so user can retry
+        try {
+            await sendVerificationEmail(lowerEmail, otpCode);
+        } catch (sendErr) {
+            try {
+                await EmailOtp.deleteOne({ email: lowerEmail });
+            } catch (delErr) {
+                // ignore deletion error
+            }
+            return res.status(500).json({ message: sendErr.message || 'Could not send email' });
+        }
+
+        if (!otpRecord) {
+            otpRecord = new EmailOtp({
+                email: lowerEmail,
+                otpHash,
+                expiresAt,
+                attempts: 0,
+                sendCount: 1,
+                sendWindowStart: now,
+                lastSentAt: now,
+                lockedUntil: null,
+                verified: false,
+                verifiedAt: null
+            });
+        } else {
+            otpRecord.sendWindowStart = isNewWindow ? now : otpRecord.sendWindowStart;
+            otpRecord.sendCount = currentSendCount + 1;
+            otpRecord.otpHash = otpHash;
+            otpRecord.expiresAt = expiresAt;
+            otpRecord.attempts = 0;
+            otpRecord.lastSentAt = now;
+            otpRecord.lockedUntil = null;
+            otpRecord.verified = false;
+            otpRecord.verifiedAt = null;
+        }
+        await otpRecord.save();
+
+        return res.status(200).json({ message: 'OTP sent' });
+    } catch (error) {
+        return res.status(500).json({ message: 'Could not send email' });
+    }
+};
+
+const verifyEmailOtp = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+
+        if (!email || typeof email !== 'string' || !otp || typeof otp !== 'string') {
+            return res.status(400).json({ message: 'Email and 6-digit OTP are required' });
+        }
+
+        const cleanOtp = otp.trim();
+        if (!/^\d{6}$/.test(cleanOtp)) {
+            return res.status(400).json({ message: 'OTP must be exactly 6 digits' });
+        }
+
+        const lowerEmail = email.toLowerCase().trim();
+        const now = new Date();
+        const otpRecord = await EmailOtp.findOne({ email: lowerEmail });
+
+        if (otpRecord && otpRecord.lockedUntil && otpRecord.lockedUntil > now) {
+            const remainingMs = otpRecord.lockedUntil.getTime() - now.getTime();
+            const remainingMinutes = Math.max(1, Math.ceil(remainingMs / (60 * 1000)));
+            return res.status(429).json({
+                message: `Too many failed attempts. Verification is locked. Please try again in ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}.`
+            });
+        }
+
+        if (!otpRecord || !otpRecord.otpHash || !otpRecord.expiresAt || otpRecord.expiresAt <= now) {
+            return res.status(400).json({ message: 'OTP expired. Please request a new one' });
+        }
+
+        const isMatch = await bcrypt.compare(cleanOtp, otpRecord.otpHash);
+        if (!isMatch) {
+            const newAttempts = (otpRecord.attempts || 0) + 1;
+            otpRecord.attempts = newAttempts;
+
+            if (newAttempts >= 5) {
+                otpRecord.otpHash = null; // delete the OTP
+                otpRecord.lockedUntil = new Date(now.getTime() + 30 * 60 * 1000);
+                otpRecord.expiresAt = new Date(now.getTime() + 35 * 60 * 1000);
+                await otpRecord.save();
+                return res.status(429).json({
+                    message: 'Too many failed attempts. Verification is locked for 30 minutes.'
+                });
+            }
+
+            const remainingAttempts = 5 - newAttempts;
+            await otpRecord.save();
+            return res.status(400).json({
+                message: `Invalid OTP code. ${remainingAttempts} attempt${remainingAttempts === 1 ? '' : 's'} remaining.`
+            });
+        }
+
+        // Correct code
+        otpRecord.verified = true;
+        otpRecord.verifiedAt = now;
+        otpRecord.otpHash = null; // clear otpHash so the code cannot be reused
+        otpRecord.attempts = 0;
+        otpRecord.expiresAt = new Date(now.getTime() + 35 * 60 * 1000); // valid for registration within 30 mins
+        await otpRecord.save();
+
+        return res.status(200).json({ verified: true });
+    } catch (error) {
+        return res.status(500).json({ message: 'Server error verifying OTP', error: error.message });
+    }
+};
+
+module.exports = {
+    registerUser,
+    loginUser,
+    getUserProfile,
+    updateUserProfile,
+    verifyOldPassword,
+    updatePassword,
+    checkUsername,
+    sendEmailOtp,
+    verifyEmailOtp
+};

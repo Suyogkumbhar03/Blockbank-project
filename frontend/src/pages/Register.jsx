@@ -241,6 +241,16 @@ function Register() {
   const [isCheckingUsername, setIsCheckingUsername] = useState(false)
   const [usernameTakenError, setUsernameTakenError] = useState('')
 
+  // Email OTP verification states
+  const [emailOtp, setEmailOtp] = useState('')
+  const [emailVerified, setEmailVerified] = useState(false)
+  const [isOtpSent, setIsOtpSent] = useState(false)
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
+  const [otpError, setOtpError] = useState('')
+  const [otpSuccessMsg, setOtpSuccessMsg] = useState('')
+  const [resendCooldown, setResendCooldown] = useState(0)
+
   const navigate = useNavigate()
 
   // Real-time validation evaluations
@@ -253,6 +263,83 @@ function Register() {
   const pinStatus = validatePin(pin)
 
   const passwordCriteria = checkPasswordCriteria(password)
+
+  // Countdown timer for OTP resend cooldown (60 seconds)
+  useEffect(() => {
+    let timer
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0))
+      }, 1000)
+    }
+    return () => clearInterval(timer)
+  }, [resendCooldown])
+
+  const handleEmailChange = (newVal) => {
+    setEmail(newVal)
+    // If the email text changes at any time, reset the verified state and hide the OTP box
+    if (emailVerified || isOtpSent || emailOtp || otpError || otpSuccessMsg) {
+      setEmailVerified(false)
+      setIsOtpSent(false)
+      setEmailOtp('')
+      setOtpError('')
+      setOtpSuccessMsg('')
+    }
+  }
+
+  const handleChangeEmail = () => {
+    setEmailVerified(false)
+    setIsOtpSent(false)
+    setEmailOtp('')
+    setOtpError('')
+    setOtpSuccessMsg('')
+  }
+
+  const handleSendOtp = async () => {
+    if (!emailStatus.isValid || isSendingOtp || resendCooldown > 0) return
+    setIsSendingOtp(true)
+    setOtpError('')
+    setOtpSuccessMsg('')
+    try {
+      const res = await api.post('/send-email-otp', { email: email.trim().toLowerCase() })
+      setIsOtpSent(true)
+      setResendCooldown(60)
+      setOtpSuccessMsg(res.data?.message || 'Verification code sent to your email.')
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Could not send verification code.'
+      setOtpError(msg)
+    } finally {
+      setIsSendingOtp(false)
+    }
+  }
+
+  const handleVerifyOtp = async () => {
+    const cleanOtp = emailOtp.trim()
+    if (!/^\d{6}$/.test(cleanOtp) || isVerifyingOtp) {
+      setOtpError('Please enter a valid 6-digit code.')
+      return
+    }
+    setIsVerifyingOtp(true)
+    setOtpError('')
+    try {
+      const res = await api.post('/verify-email-otp', {
+        email: email.trim().toLowerCase(),
+        otp: cleanOtp
+      })
+      if (res.data?.verified) {
+        setEmailVerified(true)
+        setIsOtpSent(false)
+        setEmailOtp('')
+        setOtpError('')
+        setOtpSuccessMsg('Email verified ✓')
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Verification failed.'
+      setOtpError(msg)
+    } finally {
+      setIsVerifyingOtp(false)
+    }
+  }
 
   // Asynchronous Debounced Check for Username Existence
   useEffect(() => {
@@ -295,6 +382,7 @@ function Register() {
     fullNameStatus.isValid &&
     isUsernameValid &&
     emailStatus.isValid &&
+    emailVerified &&
     passwordStatus.isValid &&
     phoneStatus.isValid &&
     dobStatus.isValid &&
@@ -319,6 +407,10 @@ function Register() {
     }
     if (!emailStatus.isValid) {
       setErrorMsg(emailStatus.message)
+      return
+    }
+    if (!emailVerified) {
+      setErrorMsg('Please verify your email with OTP first')
       return
     }
     if (!passwordStatus.isValid) {
@@ -524,45 +616,157 @@ function Register() {
             </p>
           </div>
 
-          {/* 3. EMAIL FIELD */}
+          {/* 3. EMAIL FIELD WITH OTP VERIFICATION */}
           <div className="flex flex-col gap-xs w-full">
             <div className="flex justify-between items-center">
               <label className="text-[12px] font-medium tracking-wider text-on-surface-variant uppercase" htmlFor="email">
                 Email Address
               </label>
               {email && (
-                <span className={`text-[11px] font-medium ${emailStatus.isValid ? 'text-emerald-600' : 'text-error'}`}>
-                  {emailStatus.isValid ? '✓ Valid' : '✕ Invalid'}
+                <span className={`text-[11px] font-medium ${emailVerified ? 'text-emerald-600 font-bold' : emailStatus.isValid ? 'text-emerald-600' : 'text-error'}`}>
+                  {emailVerified ? '✓ Verified' : emailStatus.isValid ? '✓ Valid format' : '✕ Invalid'}
                 </span>
               )}
             </div>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline text-[20px]">
-                mail
-              </span>
-              <input 
-                className={`input-field w-full h-10 pl-10 pr-3 rounded font-mono text-sm ${getFieldBorderClass(email, emailStatus.isValid)}`} 
-                id="email" 
-                name="email" 
-                placeholder="e.g. johndoe@gmail.com" 
-                required 
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 transform -translate-y-1/2 text-outline text-[20px]">
+                  mail
+                </span>
+                <input 
+                  className={`input-field w-full h-10 pl-10 pr-3 rounded font-mono text-sm ${
+                    emailVerified ? 'bg-emerald-50/40 border-emerald-500 text-on-surface' : getFieldBorderClass(email, emailStatus.isValid)
+                  }`} 
+                  id="email" 
+                  name="email" 
+                  placeholder="e.g. johndoe@gmail.com" 
+                  required 
+                  type="email"
+                  autoComplete="email"
+                  readOnly={emailVerified}
+                  value={email}
+                  onChange={(e) => handleEmailChange(e.target.value)}
+                />
+              </div>
+
+              {!emailVerified ? (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={!emailStatus.isValid || isSendingOtp || resendCooldown > 0}
+                  className="px-3 sm:px-4 h-10 rounded text-xs font-semibold bg-primary text-on-primary hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  {isSendingOtp ? (
+                    <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+                  ) : (
+                    <span className="material-symbols-outlined text-[16px]">verified_user</span>
+                  )}
+                  <span>{isSendingOtp ? 'Sending...' : isOtpSent ? 'Resend' : 'Verify'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleChangeEmail}
+                  className="px-3 h-10 rounded text-xs font-medium text-primary hover:underline hover:bg-primary/5 transition-all shrink-0 cursor-pointer"
+                >
+                  Change email
+                </button>
+              )}
             </div>
-            {/* Live Inline Feedback for Email */}
-            {email && !emailStatus.isValid && (
+
+            {/* Verified badge */}
+            {emailVerified && (
+              <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 font-semibold mt-0.5 animate-fadeIn">
+                <span className="material-symbols-outlined text-[16px]">verified</span>
+                <span>Email verified ✓</span>
+              </div>
+            )}
+
+            {/* OTP Input Box (shown after code is sent and before verification) */}
+            {!emailVerified && isOtpSent && (
+              <div className="mt-2 p-3 rounded-lg bg-surface-container-low border border-outline-variant/70 flex flex-col gap-2 animate-fadeIn shadow-sm">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="font-semibold text-on-surface flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[16px] text-primary">key</span>
+                    Enter 6-digit code sent to your email:
+                  </span>
+                  {resendCooldown > 0 ? (
+                    <span className="text-[11px] text-on-surface-variant font-mono">
+                      Resend in {resendCooldown}s
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={isSendingOtp}
+                      className="text-[11px] text-primary hover:underline font-semibold cursor-pointer"
+                    >
+                      Resend OTP
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="123456"
+                    value={emailOtp}
+                    onChange={(e) => {
+                      setOtpError('')
+                      setEmailOtp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    }}
+                    className="flex-1 h-9 px-3 rounded font-mono text-center tracking-widest text-base font-bold bg-surface-container-lowest border border-outline-variant focus:border-primary focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={emailOtp.length !== 6 || isVerifyingOtp}
+                    className="px-4 h-9 rounded text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shrink-0 flex items-center gap-1 cursor-pointer"
+                  >
+                    {isVerifyingOtp ? (
+                      <span className="material-symbols-outlined text-[14px] animate-spin">sync</span>
+                    ) : (
+                      <span className="material-symbols-outlined text-[14px]">check</span>
+                    )}
+                    <span>Confirm</span>
+                  </button>
+                </div>
+
+                {otpError && (
+                  <div className="flex items-start gap-1 text-[11px] text-error leading-tight mt-0.5">
+                    <span className="material-symbols-outlined text-[14px] shrink-0 mt-[-1px]">error</span>
+                    <span>{otpError}</span>
+                  </div>
+                )}
+                {otpSuccessMsg && !otpError && (
+                  <div className="text-[11px] text-emerald-700 leading-tight">
+                    {otpSuccessMsg}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Live Inline Feedback for Email format */}
+            {!emailVerified && email && !emailStatus.isValid && (
               <div className="flex items-start gap-1.5 text-[11px] text-error mt-0.5 leading-tight animate-fadeIn">
                 <span className="material-symbols-outlined text-[15px] shrink-0 mt-[-1px]">error</span>
                 <span>{emailStatus.message}</span>
               </div>
             )}
-            {email && emailStatus.isValid && (
+            {/* Error when sending OTP failed */}
+            {!emailVerified && !isOtpSent && otpError && (
+              <div className="flex items-start gap-1.5 text-[11px] text-error mt-0.5 leading-tight animate-fadeIn">
+                <span className="material-symbols-outlined text-[15px] shrink-0 mt-[-1px]">error</span>
+                <span>{otpError}</span>
+              </div>
+            )}
+            {!emailVerified && email && emailStatus.isValid && !isOtpSent && !otpError && (
               <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 mt-0.5 animate-fadeIn">
                 <span className="material-symbols-outlined text-[15px] shrink-0">check_circle</span>
-                <span>{emailStatus.message}</span>
+                <span>{emailStatus.message} — Click "Verify" to receive code</span>
               </div>
             )}
             {!email && submitted && (
@@ -854,11 +1058,16 @@ function Register() {
                 submitted && !isFormValid ? 'opacity-80 hover:opacity-100' : ''
               }`} 
               type="submit"
-              disabled={loading}
+              disabled={loading || !emailVerified}
             >
               <span className="material-symbols-outlined text-[18px]">person_add</span>
               {loading ? 'Submitting...' : 'Register'}
             </button>
+            {!emailVerified && (
+              <p className="text-center text-[11px] text-amber-700 font-medium">
+                Verify your email to continue
+              </p>
+            )}
           </div>
           
           <div className="text-center mt-1">
