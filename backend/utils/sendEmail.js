@@ -1,32 +1,11 @@
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
 /**
- * Sends a 6-digit verification code to the recipient's email address using Gmail SMTP.
- * Formatted with a modern, high-end fintech design.
- *
- * @param {string} toEmail - Recipient email address
- * @param {string} otpCode - 6-digit plain OTP code
- * @returns {Promise<boolean>}
+ * Builds the modern, fintech-styled verification email HTML template.
  */
-const sendVerificationEmail = async (toEmail, otpCode) => {
-    const user = process.env.EMAIL_USER;
-    const pass = process.env.EMAIL_APP_PASSWORD;
-    const senderName = process.env.EMAIL_SENDER_NAME || 'BlockBank';
-
-    if (!user || !pass) {
-        console.error('[EMAIL ERROR] Gmail SMTP credentials are not configured');
-        throw new Error('Email service is not configured');
-    }
-
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user,
-            pass
-        }
-    });
-
-    const htmlContent = `
+const buildEmailTemplate = (otpCode) => {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,20 +92,111 @@ const sendVerificationEmail = async (toEmail, otpCode) => {
 </body>
 </html>
     `;
+};
 
-    try {
-        await transporter.sendMail({
-            from: `"${senderName}" <${user}>`,
-            to: toEmail,
-            subject: `${otpCode} is your BlockBank verification code`,
-            html: htmlContent
-        });
+/**
+ * Sends a 6-digit verification code to the recipient's email address.
+ * Supports Resend (HTTPS port 443 - works on Render Free Tier) and Gmail SMTP (port 465)
+ * with strict fail-fast timeouts and optional ALLOW_CONSOLE_OTP fallback.
+ *
+ * @param {string} toEmail - Recipient email address
+ * @param {string} otpCode - 6-digit plain OTP code
+ * @returns {Promise<boolean>}
+ */
+const sendVerificationEmail = async (toEmail, otpCode) => {
+    const senderName = process.env.EMAIL_SENDER_NAME || 'BlockBank';
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_APP_PASSWORD;
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const allowConsoleOtp = process.env.ALLOW_CONSOLE_OTP === 'true';
 
-        return true;
-    } catch (err) {
-        console.error('[EMAIL ERROR] Failed to send email via Gmail:', err.message);
-        throw new Error(err.message || 'Failed to send email');
+    // ALWAYS log OTP to server console (visible in Render logs and terminal)
+    console.log('================================================================');
+    console.log(`🔐 [BLOCKBANK OTP] Recipient: ${toEmail} | Code: ${otpCode}`);
+    console.log('================================================================');
+
+    const htmlContent = buildEmailTemplate(otpCode);
+    let lastError = null;
+
+    // 1. If RESEND_API_KEY is configured, try Resend over HTTPS port 443 (NEVER blocked by Render Free Tier)
+    if (resendApiKey) {
+        try {
+            const resend = new Resend(resendApiKey);
+            const { data, error } = await resend.emails.send({
+                from: `${senderName} <onboarding@resend.dev>`,
+                to: [toEmail],
+                subject: `${otpCode} is your BlockBank verification code`,
+                html: htmlContent
+            });
+
+            if (!error && data?.id) {
+                console.log(`[EMAIL SUCCESS] OTP delivered to ${toEmail} via Resend (HTTPS). ID: ${data.id}`);
+                return true;
+            } else if (error) {
+                console.warn(`[EMAIL WARNING] Resend HTTP API rejected: ${error.message}`);
+                lastError = new Error(error.message);
+            }
+        } catch (resendErr) {
+            console.warn(`[EMAIL WARNING] Resend request exception: ${resendErr.message}`);
+            lastError = resendErr;
+        }
     }
+
+    // 2. Try Gmail SMTP with strict 7-second timeouts to avoid hanging indefinitely on Render Free Tier
+    if (emailUser && emailPass) {
+        try {
+            const transporter = nodemailer.createTransport({
+                service: 'gmail',
+                auth: {
+                    user: emailUser,
+                    pass: emailPass
+                },
+                connectionTimeout: 7000, // 7 seconds timeout
+                greetingTimeout: 7000,
+                socketTimeout: 7000
+            });
+
+            await transporter.sendMail({
+                from: `"${senderName}" <${emailUser}>`,
+                to: toEmail,
+                subject: `${otpCode} is your BlockBank verification code`,
+                html: htmlContent
+            });
+
+            console.log(`[EMAIL SUCCESS] OTP delivered to ${toEmail} via Gmail SMTP.`);
+            return true;
+        } catch (smtpErr) {
+            console.error(`[EMAIL ERROR] Gmail SMTP failed: ${smtpErr.message}`);
+            lastError = smtpErr;
+        }
+    }
+
+    // 3. Fallback: ALLOW_CONSOLE_OTP for Render Free Tier or Demo presentations
+    if (allowConsoleOtp) {
+        console.log(`[CONSOLE OTP ACTIVE] ALLOW_CONSOLE_OTP=true. Use code ${otpCode} displayed in logs.`);
+        return true;
+    }
+
+    // 4. If neither service is configured
+    if (!resendApiKey && (!emailUser || !emailPass)) {
+        throw new Error('Email service is not configured. Please set EMAIL_USER/EMAIL_APP_PASSWORD or RESEND_API_KEY.');
+    }
+
+    // 5. Detect Render SMTP timeout
+    const isTimeout = lastError && (
+        lastError.code === 'ETIMEDOUT' ||
+        lastError.code === 'ESOCKETTIMEDOUT' ||
+        (lastError.message && lastError.message.toLowerCase().includes('timeout'))
+    );
+
+    if (isTimeout) {
+        throw new Error(
+            'Email delivery timed out. Note: Render Free Tier blocks outbound SMTP (ports 465/587). ' +
+            'Add ALLOW_CONSOLE_OTP=true in Render environment variables or use Resend API.'
+        );
+    }
+
+    throw new Error(lastError?.message || 'Failed to send verification email.');
 };
 
 module.exports = { sendVerificationEmail };
