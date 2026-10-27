@@ -8,9 +8,21 @@ const generateAccountNumber = () => {
     return 'BB' + Math.floor(1000000000 + Math.random() * 9000000000);
 };
 
-const generatePaymentId = (name) => {
-    const cleanName = name.toLowerCase().replace(/\s+/g, '');
-    return `${cleanName}@blockbank`;
+const generatePaymentId = async (name) => {
+    const cleanName = (name || '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+    const maxAttempts = 10;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const randomDigits = Math.floor(1000 + Math.random() * 9000);
+        const candidatePaymentId = `${cleanName}${randomDigits}@blockbank`;
+
+        const existingUser = await User.findOne({ paymentId: candidatePaymentId });
+        if (!existingUser) {
+            return candidatePaymentId;
+        }
+    }
+
+    throw new Error('Unable to generate unique payment ID after 10 attempts');
 };
 
 const getPendingUsers = async (req, res) => {
@@ -43,7 +55,7 @@ const getRejectedUsers = async (req, res) => {
 const approveUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { initialBalance } = req.body;
+        const { initialBalance } = req.body || {};
 
         const user = await User.findById(id);
         if (!user) {
@@ -54,9 +66,33 @@ const approveUser = async (req, res) => {
             return res.status(400).json({ message: 'User already approved' });
         }
 
-        user.accountNumber = generateAccountNumber();
-        user.paymentId = generatePaymentId(user.name);
-        user.balance = (initialBalance !== undefined && initialBalance !== null && !isNaN(Number(initialBalance))) ? Number(initialBalance) : 1000;
+        // Validate initialBalance
+        let balance = 1000;
+        if (initialBalance !== undefined) {
+            if (
+                initialBalance === null ||
+                Array.isArray(initialBalance) ||
+                typeof initialBalance === 'boolean' ||
+                (typeof initialBalance === 'string' && initialBalance.trim() === '') ||
+                isNaN(Number(initialBalance))
+            ) {
+                return res.status(400).json({ message: 'Initial balance must be a valid number' });
+            }
+
+            const numericBalance = Number(initialBalance);
+            if (numericBalance < 0) {
+                return res.status(400).json({ message: 'Initial balance cannot be negative' });
+            }
+
+            const MAX_INITIAL_BALANCE = 1000000;
+            balance = Math.min(numericBalance, MAX_INITIAL_BALANCE);
+        }
+
+        user.accountNumber = user.accountNumber || generateAccountNumber();
+        if (!user.paymentId) {
+            user.paymentId = await generatePaymentId(user.name);
+        }
+        user.balance = balance;
         user.status = 'approved';
         user.approvedAt = new Date();
 
@@ -97,6 +133,12 @@ const approveUser = async (req, res) => {
             }
         });
     } catch (error) {
+        if (error.code === 11000) {
+            return res.status(409).json({
+                message: 'Conflict: User with this payment ID or account number already exists. Please try again.',
+                error: error.message
+            });
+        }
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
@@ -438,6 +480,7 @@ const reviewFraudAlert = async (req, res) => {
 };
 
 module.exports = {
+    generatePaymentId,
     getPendingUsers,
     getApprovedUsers,
     getRejectedUsers,

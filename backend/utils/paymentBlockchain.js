@@ -18,15 +18,26 @@ const enqueueBlockCreation = (task) => {
  * Signed by Authority Private Key (PoA SHA256 RSA).
  * Serialized via in-process queue and wrapped in a retry loop (max 5 attempts)
  * if a duplicate key error (code 11000) occurs.
- * Wrapped in try/catch to ensure errors never break caller execution (e.g. transfer money flow).
+ * Throws an error if AUTHORITY_PRIVATE_KEY is missing to prevent creating unsigned blocks.
  * 
  * @param {Object} transactionData - Details of the saved transaction
  */
 const addPaymentBlock = async (transactionData) => {
+    if (!transactionData) return null;
+
+    // Check Authority Private Key before creating block
+    const rawPrivateKey = process.env.AUTHORITY_PRIVATE_KEY;
+    const rawPublicKey = process.env.AUTHORITY_PUBLIC_KEY;
+
+    if (!rawPrivateKey || rawPrivateKey.trim() === '') {
+        throw new Error("Authority private key not configured");
+    }
+
+    const privateKey = rawPrivateKey.replace(/\\n/g, '\n');
+    const publicKey = rawPublicKey ? rawPublicKey.replace(/\\n/g, '\n') : '';
+
     return enqueueBlockCreation(async () => {
         try {
-            if (!transactionData) return null;
-
             let savedBlock = null;
             const maxAttempts = 5;
 
@@ -50,15 +61,9 @@ const addPaymentBlock = async (transactionData) => {
                     const dataToSign = `${index}${transactionData.transactionId}${transactionData.senderPaymentId}${transactionData.receiverPaymentId}${transactionData.senderName}${transactionData.receiverName}${transactionData.amount}${timestamp.toISOString()}${previousHash}`;
 
                     // Sign payload with Authority Private Key
-                    const privateKey = process.env.AUTHORITY_PRIVATE_KEY;
-                    const publicKey = process.env.AUTHORITY_PUBLIC_KEY;
-
-                    let signature = 'N/A';
-                    if (privateKey) {
-                        const signer = crypto.createSign('SHA256');
-                        signer.update(dataToSign);
-                        signature = signer.sign(privateKey, 'hex');
-                    }
+                    const signer = crypto.createSign('SHA256');
+                    signer.update(dataToSign);
+                    const signature = signer.sign(privateKey, 'hex');
 
                     // Include signature in data that gets hashed for the block's hash field
                     const dataToHash = `${dataToSign}${signature}`;
@@ -78,7 +83,7 @@ const addPaymentBlock = async (transactionData) => {
                         timestamp,
                         previousHash,
                         signature,
-                        authorityPublicKey: publicKey || 'N/A',
+                        authorityPublicKey: publicKey || '',
                         hash
                     });
 
@@ -97,13 +102,12 @@ const addPaymentBlock = async (transactionData) => {
                     }
 
                     console.error(`Failed to save payment block (attempt ${attempt}/${maxAttempts}):`, saveError);
-                    break;
+                    throw saveError;
                 }
             }
 
             if (!savedBlock) {
-                console.error('Failed to add payment block to blockchain after retries.');
-                return null;
+                throw new Error('Failed to add payment block to blockchain after retries');
             }
 
             // Run validation after every new block is added
@@ -135,7 +139,7 @@ const addPaymentBlock = async (transactionData) => {
             return savedBlock;
         } catch (error) {
             console.error('Failed to add payment block to blockchain:', error);
-            return null;
+            throw error;
         }
     });
 };
@@ -145,7 +149,7 @@ const addPaymentBlock = async (transactionData) => {
  * Executes:
  * 1. Link integrity check (previousHash == prevBlock.hash)
  * 2. Hash integrity check (recalculated SHA-256 hash)
- * 3. RSA Authority signature verification
+ * 3. RSA Authority signature verification (using process.env.AUTHORITY_PUBLIC_KEY only)
  * 4. Check 1 — Index Sequence Check
  * 5. Check 2 — Timestamp Ordering Check
  * 6. Check 3 — Cross-verify Block Data Against Transaction Record
@@ -153,8 +157,30 @@ const addPaymentBlock = async (transactionData) => {
  * 8. Check 5 — Severity Levels (OK, WARNING, CRITICAL)
  */
 const validatePaymentChain = async () => {
+    // Check if Authority Public Key is configured
+    const rawAuthorityPublicKey = process.env.AUTHORITY_PUBLIC_KEY;
+    if (!rawAuthorityPublicKey || rawAuthorityPublicKey.trim() === '') {
+        return {
+            valid: false,
+            totalBlocks: 0,
+            passed: 0,
+            warnings: 0,
+            critical: 0,
+            orphanTransactions: [],
+            orphanCount: 0,
+            message: "Validation failed: Authority public key is not configured (process.env.AUTHORITY_PUBLIC_KEY is missing).",
+            results: []
+        };
+    }
+
+    const authorityPublicKey = rawAuthorityPublicKey.replace(/\r\n/g, '\n').replace(/\\n/g, '\n').trim();
+
     const blocks = await PaymentBlock.find().sort({ index: 1 });
     const results = [];
+
+    // Helper to normalize PEM keys for comparison
+    const normalizeKey = (key) => (key ? key.replace(/\r\n/g, '\n').replace(/\\n/g, '\n').trim() : '');
+    const normalizedEnvKey = normalizeKey(authorityPublicKey);
 
     for (let i = 0; i < blocks.length; i++) {
         const block = blocks[i];
@@ -178,12 +204,23 @@ const validatePaymentChain = async () => {
         const hashValid = block.hash === computedHash;
 
         // 3. PoA Signature verification
-        let signatureValid = true;
-        if (block.signature && block.signature !== 'N/A' && block.authorityPublicKey && block.authorityPublicKey !== 'N/A') {
+        // Security: Verify signatures ONLY with process.env.AUTHORITY_PUBLIC_KEY.
+        // We ignore block.authorityPublicKey for verification because an attacker with database
+        // access could generate a fake block, sign it with their own private key, and store their
+        // matching public key inside the block to bypass validation.
+        const isUnsigned = !block.signature || block.signature.trim() === '' || block.signature.trim().toUpperCase() === 'N/A';
+        const keyMismatch = !block.authorityPublicKey || normalizeKey(block.authorityPublicKey) !== normalizedEnvKey;
+
+        let signatureValid = false;
+        let cryptoValid = false;
+
+        if (!isUnsigned) {
             try {
                 const verifier = crypto.createVerify('SHA256');
                 verifier.update(dataToSign);
-                signatureValid = verifier.verify(block.authorityPublicKey, block.signature, 'hex');
+                cryptoValid = verifier.verify(authorityPublicKey, block.signature, 'hex');
+                // Signature is valid only if crypto verification passes AND the block's stored key doesn't conflict
+                signatureValid = cryptoValid && !keyMismatch;
             } catch (e) {
                 signatureValid = false;
             }
@@ -236,7 +273,16 @@ const validatePaymentChain = async () => {
             plainReasons.push("Digital fingerprint does not match. Block data was modified.");
         }
         if (!blockResult.signatureValid) {
-            plainReasons.push("Digital authority signature is invalid. Block was not signed by authorized bank authority.");
+            if (isUnsigned) {
+                plainReasons.push("Block is unsigned. Proof of Authority signature is missing.");
+            } else {
+                if (keyMismatch) {
+                    plainReasons.push("Stored authority public key does not match the server authority public key.");
+                }
+                if (!cryptoValid) {
+                    plainReasons.push("Digital authority signature is invalid. Block was not signed by authorized bank authority.");
+                }
+            }
         }
         if (!blockResult.linkValid) {
             plainReasons.push("Chain link is broken. Previous block reference does not match.");
