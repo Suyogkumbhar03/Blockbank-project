@@ -118,7 +118,34 @@ const sendVerificationEmail = async (toEmail, otpCode) => {
     const htmlContent = buildEmailTemplate(otpCode);
     let lastError = null;
 
-    // 1. If RESEND_API_KEY is configured, try Resend over HTTPS port 443 (NEVER blocked by Render Free Tier)
+    // 1. If GOOGLE_SCRIPT_URL is configured (HTTPS port 443 - sends via your Gmail to ANY recipient)
+    const googleScriptUrl = process.env.GOOGLE_SCRIPT_URL;
+    if (googleScriptUrl) {
+        try {
+            const resp = await fetch(googleScriptUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    email: toEmail,
+                    subject: `${otpCode} is your BlockBank verification code`,
+                    html: htmlContent
+                })
+            });
+            const result = await resp.json().catch(() => ({}));
+            if (result.status === 'success') {
+                console.log(`[EMAIL SUCCESS] OTP delivered to ${toEmail} via Google Apps Script (HTTPS).`);
+                return true;
+            } else {
+                console.warn(`[EMAIL WARNING] Google Apps Script returned error: ${result.message || 'unknown error'}`);
+                lastError = new Error(result.message || 'Google Apps Script failed');
+            }
+        } catch (gasErr) {
+            console.warn(`[EMAIL WARNING] Google Apps Script request exception: ${gasErr.message}`);
+            lastError = gasErr;
+        }
+    }
+
+    // 2. If RESEND_API_KEY is configured, try Resend over HTTPS port 443 (NEVER blocked by Render Free Tier)
     if (resendApiKey) {
         try {
             const resend = new Resend(resendApiKey);
