@@ -471,8 +471,9 @@ const sendEmailOtp = async (req, res) => {
         const expiresAt = new Date(now.getTime() + 10 * 60 * 1000);
 
         // Send email first — if sending fails, return generic 500 and remove OTP record so user can retry
+        let emailResult = { success: false, delivered: false };
         try {
-            await sendVerificationEmail(lowerEmail, otpCode);
+            emailResult = await sendVerificationEmail(lowerEmail, otpCode);
         } catch (sendErr) {
             try {
                 await EmailOtp.deleteOne({ email: lowerEmail });
@@ -508,7 +509,12 @@ const sendEmailOtp = async (req, res) => {
         }
         await otpRecord.save();
 
-        return res.status(200).json({ message: 'OTP sent' });
+        return res.status(200).json({
+            message: emailResult && emailResult.delivered
+                ? 'Verification code sent to your email.'
+                : `Verification code sent! (Demo Code: ${otpCode})`,
+            demoOtp: emailResult && emailResult.delivered ? null : otpCode
+        });
     } catch (error) {
         return res.status(500).json({ message: 'Could not send email' });
     }

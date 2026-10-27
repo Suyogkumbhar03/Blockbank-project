@@ -134,7 +134,7 @@ const sendVerificationEmail = async (toEmail, otpCode) => {
             const result = await resp.json().catch(() => ({}));
             if (result.status === 'success') {
                 console.log(`[EMAIL SUCCESS] OTP delivered to ${toEmail} via Google Apps Script (HTTPS).`);
-                return true;
+                return { success: true, delivered: true, method: 'google_script' };
             } else {
                 console.warn(`[EMAIL WARNING] Google Apps Script returned error: ${result.message || 'unknown error'}`);
                 lastError = new Error(result.message || 'Google Apps Script failed');
@@ -158,7 +158,7 @@ const sendVerificationEmail = async (toEmail, otpCode) => {
 
             if (!error && data?.id) {
                 console.log(`[EMAIL SUCCESS] OTP delivered to ${toEmail} via Resend (HTTPS). ID: ${data.id}`);
-                return true;
+                return { success: true, delivered: true, method: 'resend' };
             } else if (error) {
                 console.warn(`[EMAIL WARNING] Resend HTTP API rejected: ${error.message}`);
                 lastError = new Error(error.message);
@@ -169,7 +169,7 @@ const sendVerificationEmail = async (toEmail, otpCode) => {
         }
     }
 
-    // 2. Try Gmail SMTP with strict 7-second timeouts to avoid hanging indefinitely on Render Free Tier
+    // 3. Try Gmail SMTP with strict 7-second timeouts to avoid hanging indefinitely on Render Free Tier
     if (emailUser && emailPass) {
         try {
             const transporter = nodemailer.createTransport({
@@ -191,17 +191,17 @@ const sendVerificationEmail = async (toEmail, otpCode) => {
             });
 
             console.log(`[EMAIL SUCCESS] OTP delivered to ${toEmail} via Gmail SMTP.`);
-            return true;
+            return { success: true, delivered: true, method: 'smtp' };
         } catch (smtpErr) {
             console.error(`[EMAIL ERROR] Gmail SMTP failed: ${smtpErr.message}`);
             lastError = smtpErr;
         }
     }
 
-    // 3. Fallback: ALLOW_CONSOLE_OTP for Render Free Tier or Demo presentations
+    // 4. Fallback: ALLOW_CONSOLE_OTP for Render Free Tier or Demo presentations
     if (allowConsoleOtp) {
-        console.log(`[CONSOLE OTP ACTIVE] ALLOW_CONSOLE_OTP=true. Use code ${otpCode} displayed in logs.`);
-        return true;
+        console.log(`[CONSOLE OTP ACTIVE] ALLOW_CONSOLE_OTP=true. Code ${otpCode} displayed in logs.`);
+        return { success: true, delivered: false, method: 'console' };
     }
 
     // 4. If neither service is configured

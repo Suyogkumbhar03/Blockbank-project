@@ -305,6 +305,9 @@ function Register() {
       setIsOtpSent(true)
       setResendCooldown(60)
       setOtpSuccessMsg(res.data?.message || 'Verification code sent to your email.')
+      if (res.data?.demoOtp) {
+        setEmailOtp(String(res.data.demoOtp))
+      }
     } catch (err) {
       const msg = err.response?.data?.message || err.message || 'Could not send verification code.'
       setOtpError(msg)
