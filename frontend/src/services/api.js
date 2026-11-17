@@ -10,7 +10,7 @@ const API_BASE_URL = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000, // 15s timeout to prevent hanging UI states
+  timeout: 30000, // 30s timeout to prevent hanging UI states while supporting network latency
 });
 
 // Request Interceptor: attach token automatically if available

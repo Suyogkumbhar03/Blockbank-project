@@ -110,31 +110,33 @@ const addPaymentBlock = async (transactionData) => {
                 throw new Error('Failed to add payment block to blockchain after retries');
             }
 
-            // Run validation after every new block is added
-            const validationResult = await validatePaymentChain();
-
-            if (!validationResult.valid) {
-                const notifMessage = `⚠️ Blockchain integrity check failed after Block #${savedBlock.index} was added. ${validationResult.critical} critical issue(s) detected. Review the blockchain immediately.`;
-                const admins = await User.find({ role: 'admin' });
-                if (admins.length > 0) {
-                    for (const admin of admins) {
+            // Run validation in background after block is saved so the user's transfer response returns immediately
+            validatePaymentChain().then(async (validationResult) => {
+                if (validationResult && !validationResult.valid) {
+                    const notifMessage = `⚠️ Blockchain integrity check failed after Block #${savedBlock.index} was added. ${validationResult.critical} critical issue(s) detected. Review the blockchain immediately.`;
+                    const admins = await User.find({ role: 'admin' });
+                    if (admins.length > 0) {
+                        for (const admin of admins) {
+                            await Notification.create({
+                                userId: admin._id,
+                                type: 'admin',
+                                message: notifMessage,
+                                read: false,
+                                createdAt: new Date()
+                            });
+                        }
+                    } else {
                         await Notification.create({
-                            userId: admin._id,
                             type: 'admin',
                             message: notifMessage,
                             read: false,
                             createdAt: new Date()
                         });
                     }
-                } else {
-                    await Notification.create({
-                        type: 'admin',
-                        message: notifMessage,
-                        read: false,
-                        createdAt: new Date()
-                    });
                 }
-            }
+            }).catch((valErr) => {
+                console.error('Background chain validation error:', valErr.message);
+            });
 
             return savedBlock;
         } catch (error) {
@@ -175,8 +177,17 @@ const validatePaymentChain = async () => {
 
     const authorityPublicKey = rawAuthorityPublicKey.replace(/\r\n/g, '\n').replace(/\\n/g, '\n').trim();
 
-    const blocks = await PaymentBlock.find().sort({ index: 1 });
+    const [blocks, allTransactions] = await Promise.all([
+        PaymentBlock.find().sort({ index: 1 }),
+        Transaction.find({})
+    ]);
     const results = [];
+
+    // Map all transactions by transactionId for O(1) in-memory lookup
+    const txMap = new Map();
+    allTransactions.forEach(t => {
+        if (t.transactionId) txMap.set(t.transactionId, t);
+    });
 
     // Helper to normalize PEM keys for comparison
     const normalizeKey = (key) => (key ? key.replace(/\r\n/g, '\n').replace(/\\n/g, '\n').trim() : '');
@@ -244,7 +255,7 @@ const validatePaymentChain = async () => {
         }
 
         // Check 3 — Cross-verify Block Data Against Transaction Record
-        const transaction = await Transaction.findOne({ transactionId: block.transactionId });
+        const transaction = txMap.get(block.transactionId);
 
         if (!transaction) {
             blockResult.transactionExists = false;
@@ -306,7 +317,6 @@ const validatePaymentChain = async () => {
     }
 
     // Check 4 — Orphan Transaction Detection
-    const allTransactions = await Transaction.find({});
     const blockTxIds = blocks.map(b => b.transactionId);
     const orphanTransactions = allTransactions.filter(t => !blockTxIds.includes(t.transactionId));
 
