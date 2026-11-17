@@ -626,14 +626,9 @@ function AdminDashboard() {
                     </div>
                     <button
                       onClick={() => setActiveTab('explorer')}
-                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold tracking-wider cursor-pointer transition-colors ${
-                        validationResult?.valid
-                          ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/30 hover:bg-emerald-500/20'
-                          : 'bg-error/10 text-error border border-error/30 hover:bg-error/20'
-                      }`}
+                      className="flex items-center gap-1 text-xs font-medium text-primary hover:underline cursor-pointer"
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${validationResult?.valid ? 'bg-emerald-600' : 'bg-error'} animate-pulse`}></span>
-                      <span>{validationResult?.valid ? 'Healthy & Synced' : 'Tamper Detected'}</span>
+                      <span>View Details</span>
                       <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </button>
                   </div>
@@ -1201,7 +1196,7 @@ function AdminDashboard() {
                               <tr className="bg-surface-container border-b border-outline-variant">
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Block #</th>
                                 {paymentValidationResults && (
-                                  <th className="py-4 px-6 font-semibold text-sm text-on-surface">Audit Status</th>
+                                  <th className="py-4 px-6 font-semibold text-sm text-on-surface w-[260px]">Audit Status</th>
                                 )}
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Transaction ID</th>
                                 <th className="py-4 px-6 font-semibold text-sm text-on-surface">Sender</th>
@@ -1248,7 +1243,7 @@ function AdminDashboard() {
                                     >
                                       <td className="py-4 px-6 text-sm font-bold font-mono text-primary">#{block.index}</td>
                                       {paymentValidationResults && (
-                                        <td className="py-4 px-6 text-sm">
+                                        <td className="py-4 px-6 text-sm whitespace-normal break-words w-[260px] max-w-[260px]">
                                           {valRes?.severity === 'OK' ? (
                                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-xs font-bold">
                                               <span className="material-symbols-outlined text-[14px]">check_circle</span>
